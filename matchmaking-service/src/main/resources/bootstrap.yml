@@ -1,0 +1,26 @@
+spring:
+  application:
+    name:
+      matchmaking-service
+  cloud:
+    config:
+      enabled: true
+      fail-fast: true
+      label: master
+  config:
+    import: optional:config-service:http://localhost:8888/
+  profiles:
+    active: dev
+
+eureka:
+  client:
+    service-url:
+      uris: http://localhost:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
+    healthcheck:
+      enabled: true
+    enabled: true
+  instance:
+    secure-port-enabled: true
+    non-secure-port-enabled: false
+    instance-id: ${spring.application.name}
