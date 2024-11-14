@@ -19,11 +19,11 @@ import java.util.Base64;
 @RequestMapping("/server")
 public class ServerController {
 
-    @Value("${dathost.username}") //cadoni827@gmail.com
-    String username;
+//    @Value("${dathost.username}") //cadoni827@gmail.com
+    private final String username = "cadoni827@gmail.com";
 
-    @Value("${dathost.password}") //smolensk863
-    String password;
+//    @Value("${dathost.password}") //smolensk863
+    private final String password = "smolensk863";
 
     String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
 
