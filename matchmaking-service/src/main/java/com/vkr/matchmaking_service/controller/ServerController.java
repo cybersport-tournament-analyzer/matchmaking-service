@@ -5,6 +5,7 @@ import com.vkr.matchmaking_service.exception.ServerNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,7 @@ import java.util.Base64;
 @RestController
 @RequestMapping("/server")
 @RequiredArgsConstructor
+@Slf4j
 public class ServerController {
 
     @Value("${dathost.username}")
@@ -48,6 +50,7 @@ public class ServerController {
                 .build();
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
 
+        log.info("Finding all servers");
         return response.body();
     }
 
@@ -62,9 +65,10 @@ public class ServerController {
                 .method("GET", HttpRequest.BodyPublishers.noBody())
                 .build();
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-        if(response.body().isEmpty()){
-            throw new ServerNotFoundException("Сервер с данным id не найден!");
+        if (response.body().isEmpty()) {
+            throw new ServerNotFoundException("Server with id " + serverId + " not found!");
         }
+        log.info("Finding server with id {}", serverId);
         return response.body();
     }
 
@@ -73,14 +77,31 @@ public class ServerController {
     @Operation(summary = "Start server")
     public void startServer(@PathVariable String serverId) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://dathost.net/api/0.1/game-servers/6733af4c84961dc2b47d4480/start"))
+                .uri(URI.create("https://dathost.net/api/0.1/game-servers/" + serverId + "/start"))
                 .header("content-type", "multipart/form-data")
                 .header("Authorization", "Basic " + auth)
                 .method("POST", HttpRequest.BodyPublishers.noBody())
                 .build();
-        if(getServerById(serverId).isEmpty()){
-            throw new ServerNotFoundException("Сервер с данным id не найден!");
+        if (getServerById(serverId).isEmpty()) {
+            throw new ServerNotFoundException("Server with id " + serverId + " not found!");
         }
+        HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        log.info("CS2 server with id {} is started", serverId);
+    }
+
+    @PostMapping("/stop/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Stop server")
+    public void stopServer(@PathVariable String serverId) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://dathost.net/api/0.1/game-servers/" + serverId + "/stop"))
+                .method("POST", HttpRequest.BodyPublishers.noBody())
+                .build();
+        if (getServerById(serverId).isEmpty()) {
+            throw new ServerNotFoundException("Server with id " + serverId + " not found!");
+        }
+        HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        log.info("CS2 server with id {} is stopped", serverId);
     }
 
 }
