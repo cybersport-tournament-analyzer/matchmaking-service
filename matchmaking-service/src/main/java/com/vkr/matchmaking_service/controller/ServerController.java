@@ -3,6 +3,8 @@ package com.vkr.matchmaking_service.controller;
 
 import com.vkr.matchmaking_service.exception.ServerNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -17,20 +19,27 @@ import java.util.Base64;
 
 @RestController
 @RequestMapping("/server")
+@RequiredArgsConstructor
 public class ServerController {
 
-//    @Value("${dathost.username}") //cadoni827@gmail.com
-    private final String username = "cadoni827@gmail.com";
+    @Value("${dathost.username}")
+    private String username;
+    @Value("${dathost.password}")
+    private String password;
 
-//    @Value("${dathost.password}") //smolensk863
-    private final String password = "smolensk863";
+    private String auth;
 
-    String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+    @PostConstruct
+    public void init() {
+        auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+    }
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Get all servers")
     public String findAll() throws IOException, InterruptedException {
+        System.out.println(username + " " + password);
+        System.out.println(auth);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://dathost.net/api/0.1/game-servers"))
                 .header("accept", "application/json")
