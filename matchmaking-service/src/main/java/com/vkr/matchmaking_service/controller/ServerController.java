@@ -67,4 +67,20 @@ public class ServerController {
         }
         return response.body();
     }
+
+    @PostMapping("/start/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Start server")
+    public void startServer(@PathVariable String serverId) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://dathost.net/api/0.1/game-servers/6733af4c84961dc2b47d4480/start"))
+                .header("content-type", "multipart/form-data")
+                .header("Authorization", "Basic " + auth)
+                .method("POST", HttpRequest.BodyPublishers.noBody())
+                .build();
+        if(getServerById(serverId).isEmpty()){
+            throw new ServerNotFoundException("Сервер с данным id не найден!");
+        }
+    }
+
 }
