@@ -95,6 +95,7 @@ public class ServerController {
     public void stopServer(@PathVariable String serverId) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://dathost.net/api/0.1/game-servers/" + serverId + "/stop"))
+                .header("Authorization", "Basic " + auth)
                 .method("POST", HttpRequest.BodyPublishers.noBody())
                 .build();
         if (getServerById(serverId).isEmpty()) {
