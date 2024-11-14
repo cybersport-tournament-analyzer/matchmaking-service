@@ -1,6 +1,7 @@
 package com.vkr.matchmaking_service.controller;
 
 
+import com.vkr.matchmaking_service.exception.ServerNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,9 @@ public class ServerController {
                 .method("GET", HttpRequest.BodyPublishers.noBody())
                 .build();
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        if(response.body().isEmpty()){
+            throw new ServerNotFoundException("Сервер с данным id не найден!");
+        }
         return response.body();
     }
 }
