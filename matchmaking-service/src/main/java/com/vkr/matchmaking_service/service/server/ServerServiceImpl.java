@@ -110,4 +110,10 @@ public class ServerServiceImpl implements ServerService {
         return objectMapper.readValue(response.body(), Server.class);
     }
 
+    @Override
+    public String getServerIp(String serverId) throws IOException, InterruptedException {
+        Server server = getServerById(serverId);
+        return "connect " + server.getIp() + ":" + server.getPorts().getGame();
+    }
+
 }

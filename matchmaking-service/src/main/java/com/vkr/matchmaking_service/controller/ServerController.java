@@ -41,8 +41,9 @@ public class ServerController {
     @PostMapping("/start/{serverId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Start server")
-    public void startServer(@PathVariable String serverId) throws IOException, InterruptedException {
+    public String startServer(@PathVariable String serverId) throws IOException, InterruptedException {
         serverService.startServer(serverId);
+        return serverService.getServerIp(serverId);
     }
 
     @PostMapping("/stop/{serverId}")

@@ -15,4 +15,6 @@ public interface ServerService {
     void stopServer(String serverId) throws IOException, InterruptedException;
 
     Server getServerById(String serverId) throws IOException, InterruptedException;
+
+    String getServerIp(String serverId) throws IOException, InterruptedException;
 }
