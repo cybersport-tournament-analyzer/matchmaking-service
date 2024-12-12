@@ -21,6 +21,7 @@ eureka:
       enabled: true
     enabled: true
   instance:
-    secure-port-enabled: true
-    non-secure-port-enabled: false
+    secure-port-enabled: false
+    non-secure-port-enabled: true
+    prefer-ip-address: true
     instance-id: ${spring.application.name}
