@@ -17,4 +17,5 @@ public interface LobbyService {
 
     void removeExpiredLobbies(List<Lobby> lobbies);
 
+    Lobby getLobbyById(String lobbyId);
 }

@@ -3,6 +3,10 @@ package com.vkr.matchmaking_service.service.lobby;
 import com.vkr.matchmaking_service.client.UserServiceClient;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.server.Lobby;
+import com.vkr.matchmaking_service.exception.LobbyIsFullException;
+import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
+import com.vkr.matchmaking_service.exception.TeamIsFullException;
+import com.vkr.matchmaking_service.exception.WrongInputException;
 import com.vkr.matchmaking_service.repository.LobbyRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +30,7 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public Lobby createLobby(String mode, String steamId) {
         if (!List.of("1x1", "2x2", "5x5").contains(mode)) {
-            throw new IllegalArgumentException("Неверный режим игры");
+            throw new WrongInputException("Wrong game mode!");
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
@@ -41,16 +45,16 @@ public class LobbyServiceImpl implements LobbyService {
     @Transactional
     public void addPlayer(UUID lobbyId, String steamId, String team) {
         Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new RuntimeException("Лобби не найдено"));
+                .orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
 
         if (lobby.isFull()) {
-            throw new RuntimeException("Лобби заполнено");
+            throw new LobbyIsFullException("Lobby is full!");
         }
 
         List<UserDto> targetTeam = team.equals("team1") ? lobby.getTeam1() : lobby.getTeam2();
 
         if (targetTeam.size() >= lobby.getMaxPlayersPerTeam()) {
-            throw new RuntimeException("Выбранная команда заполнена");
+            throw new TeamIsFullException("Chosen team is full!");
         }
 
         UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
@@ -58,11 +62,11 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     @Override
+    @Transactional
     public void removePlayer(UUID lobbyId, String steamId) {
-        UserDto player = userServiceClient.getUserBySteamId(steamId);
-
         Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new RuntimeException("Лобби не найдено"));
+                .orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
+        UserDto player = userServiceClient.getUserBySteamId(steamId);
         if (lobby.getTeam1().contains(player)) {
             lobby.getTeam1().remove(player);
         } else {
@@ -78,5 +82,10 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void removeExpiredLobbies(List<Lobby> lobbies) {
         lobbyRepository.deleteAll(lobbies);
+    }
+
+    @Override
+    public Lobby getLobbyById(String lobbyId) {
+        return lobbyRepository.findById(UUID.fromString(lobbyId)).orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
     }
 }

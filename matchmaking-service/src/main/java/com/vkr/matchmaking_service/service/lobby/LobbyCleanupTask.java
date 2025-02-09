@@ -24,8 +24,6 @@ public class LobbyCleanupTask {
     public void cleanOldLobbies() {
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
         List<Lobby> oldLobbies = lobbyRepository.findByCreatedAtBefore(tenMinutesAgo);
-
-        System.out.println("Привет!");
         lobbyService.removeExpiredLobbies(oldLobbies);
     }
 }
