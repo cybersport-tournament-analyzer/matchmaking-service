@@ -1,51 +1,44 @@
 package com.vkr.matchmaking_service.controller;
 
-import com.vkr.matchmaking_service.dto.lobby.AddUserToLobbyDto;
-import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
-import com.vkr.matchmaking_service.dto.lobby.RemoveUserFromLobbyDto;
-import com.vkr.matchmaking_service.entity.server.Lobby;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
-import io.swagger.v3.oas.annotations.Operation;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Controller
 public class LobbyController {
 
     private final List<String> players = new ArrayList<>();
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public LobbyController(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
 
     @MessageMapping("/join")
     @SendTo("/topic/lobby")
     public List<String> joinLobby(String playerName) {
-        System.out.println("playerName");
-        System.out.println(playerName);
-        if (players.size() < 10 && !players.contains(playerName)) {
+        if (!players.contains(playerName) && players.size() < 10) {
             players.add(playerName);
         }
-        System.out.println(players);
         return players;
     }
 
-    @MessageMapping("/ready")
-    @SendTo("/topic/match")
-    public String startMatch() {
-        if (players.size() == 10) {
-            System.out.println("Сохранение матча в БД...");
-            players.clear();
-            return "Матч создан!";
-        }
-        return "Ожидание игроков...";
+    @MessageMapping("/leave")
+    @SendTo("/topic/lobby")
+    public List<String> leaveLobby(String playerName) {
+        players.remove(playerName);
+        return players;
     }
 
+    // Новый метод: отправка текущего состояния лобби при подключении
+    @MessageMapping("/getPlayers")
+    public void sendCurrentPlayers() {
+        messagingTemplate.convertAndSend("/topic/lobby", players);
+    }
 
 //    private final LobbyService lobbyService;
 //
