@@ -2,29 +2,43 @@ package com.vkr.matchmaking_service.service.lobby;
 
 import com.vkr.matchmaking_service.client.UserServiceClient;
 import com.vkr.matchmaking_service.dto.user.UserDto;
-import com.vkr.matchmaking_service.entity.server.Lobby;
+import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.exception.LobbyIsFullException;
 import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
 import com.vkr.matchmaking_service.exception.TeamIsFullException;
 import com.vkr.matchmaking_service.exception.WrongInputException;
-import com.vkr.matchmaking_service.repository.LobbyRepository;
-import jakarta.transaction.Transactional;
+import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class LobbyServiceImpl implements LobbyService {
 
-    private final LobbyRepository lobbyRepository;
     private final UserServiceClient userServiceClient;
+    private final JedisPool jedisPool; // Используем JedisPool вместо RedisTemplate
+    private static final String LOBBY_KEY_PREFIX = "lobby:";
 
     @Override
     public List<Lobby> getAllLobbies() {
-        return lobbyRepository.findAll();
+        try (Jedis jedis = jedisPool.getResource()) {
+            Set<String> keys = jedis.keys(LOBBY_KEY_PREFIX + "*");
+            if (keys == null || keys.isEmpty()) return Collections.emptyList();
+
+            List<Lobby> lobbies = new ArrayList<>();
+            for (String key : keys) {
+                String json = jedis.get(key);
+                if (json != null) {
+                    lobbies.add(JsonUtils.fromJson(json, Lobby.class));
+                }
+            }
+            return lobbies;
+        }
     }
 
     @Override
@@ -34,58 +48,66 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby();
-        lobby.setMode(mode);
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode,  new ArrayList<>(), new ArrayList<>(), LocalDateTime.now());
         lobby.getTeam1().add(creator);
-        return lobbyRepository.save(lobby);
+
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
+        }
+
+        return lobby;
     }
 
-
     @Override
-    @Transactional
     public void addPlayer(UUID lobbyId, String steamId, String team) {
-        Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
+        String key = LOBBY_KEY_PREFIX + lobbyId;
 
-        if (lobby.isFull()) {
-            throw new LobbyIsFullException("Lobby is full!");
+        try (Jedis jedis = jedisPool.getResource()) {
+            String json = jedis.get(key);
+            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
+
+            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
+            if (lobby.isFull()) throw new LobbyIsFullException("Lobby is full!");
+
+            List<UserDto> targetTeam = "team1".equals(team) ? lobby.getTeam1() : lobby.getTeam2();
+            if (targetTeam.size() >= lobby.getMaxPlayersPerTeam()) {
+                throw new TeamIsFullException("Chosen team is full!");
+            }
+
+            UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
+            targetTeam.add(currentPlayer);
+
+            jedis.setex(key, 600, JsonUtils.toJson(lobby));
         }
-
-        List<UserDto> targetTeam = team.equals("team1") ? lobby.getTeam1() : lobby.getTeam2();
-
-        if (targetTeam.size() >= lobby.getMaxPlayersPerTeam()) {
-            throw new TeamIsFullException("Chosen team is full!");
-        }
-
-        UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
-        targetTeam.add(currentPlayer);
     }
 
     @Override
-    @Transactional
     public void removePlayer(UUID lobbyId, String steamId) {
-        Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
-        UserDto player = userServiceClient.getUserBySteamId(steamId);
-        if (lobby.getTeam1().contains(player)) {
-            lobby.getTeam1().remove(player);
-        } else {
-            lobby.getTeam2().remove(player);
-        }
-        lobbyRepository.save(lobby);
+        String key = LOBBY_KEY_PREFIX + lobbyId;
 
-        if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
-            lobbyRepository.delete(lobby);
-        }
-    }
+        try (Jedis jedis = jedisPool.getResource()) {
+            String json = jedis.get(key);
+            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
 
-    @Override
-    public void removeExpiredLobbies(List<Lobby> lobbies) {
-        lobbyRepository.deleteAll(lobbies);
+            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
+            lobby.getTeam1().removeIf(player -> player.getSteamId().equals(steamId));
+            lobby.getTeam2().removeIf(player -> player.getSteamId().equals(steamId));
+
+            if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
+                jedis.del(key);
+            } else {
+                jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            }
+        }
     }
 
     @Override
     public Lobby getLobbyById(String lobbyId) {
-        return lobbyRepository.findById(UUID.fromString(lobbyId)).orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
+        try (Jedis jedis = jedisPool.getResource()) {
+            String json = jedis.get(LOBBY_KEY_PREFIX + lobbyId);
+            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
+            return JsonUtils.fromJson(json, Lobby.class);
+        }
     }
 }
+

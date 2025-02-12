@@ -1,79 +1,62 @@
 package com.vkr.matchmaking_service.controller;
 
+import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Controller
+@RequiredArgsConstructor
 public class LobbyController {
 
-    private final List<String> players = new ArrayList<>();
+    private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public LobbyController(SimpMessagingTemplate messagingTemplate) {
-        this.messagingTemplate = messagingTemplate;
+    @MessageMapping("/create")
+    @SendTo("/topic/lobby")
+    public Lobby createLobby(@Payload Map<String, String> data) {
+        String mode = data.get("mode");
+        String steamId = data.get("steamId");
+        Lobby lobby = lobbyService.createLobby(mode, steamId);
+        return lobby;
     }
 
     @MessageMapping("/join")
     @SendTo("/topic/lobby")
-    public List<String> joinLobby(String playerName) {
-        if (!players.contains(playerName) && players.size() < 10) {
-            players.add(playerName);
-        }
-        return players;
+    public Lobby joinLobby(@Payload Map<String, String> data) {
+        UUID lobbyId = UUID.fromString(data.get("lobbyId"));
+        String steamId = data.get("steamId");
+        String team = data.get("team");
+        lobbyService.addPlayer(lobbyId, steamId, team);
+        return lobbyService.getLobbyById(lobbyId.toString());
     }
 
     @MessageMapping("/leave")
     @SendTo("/topic/lobby")
-    public List<String> leaveLobby(String playerName) {
-        players.remove(playerName);
-        return players;
+    public Lobby leaveLobby(@Payload Map<String, String> data) {
+        UUID lobbyId = UUID.fromString(data.get("lobbyId"));
+        String steamId = data.get("steamId");
+        lobbyService.removePlayer(lobbyId, steamId);
+        return lobbyService.getLobbyById(lobbyId.toString());
     }
 
-    // Новый метод: отправка текущего состояния лобби при подключении
-    @MessageMapping("/getPlayers")
-    public void sendCurrentPlayers() {
-        messagingTemplate.convertAndSend("/topic/lobby", players);
+    @MessageMapping("/getLobbies")
+    public void sendAllLobbies() {
+        List<Lobby> lobbies = lobbyService.getAllLobbies();
+        messagingTemplate.convertAndSend("/topic/lobby", lobbies);
     }
 
-//    private final LobbyService lobbyService;
-//
-//    @GetMapping
-//    @ResponseStatus(HttpStatus.OK)
-//    @Operation(summary = "Get all lobbies")
-//    public List<Lobby> getAllLobbies() {
-//        return lobbyService.getAllLobbies();
-//    }
-//
-//    @GetMapping("/{lobbyId}")
-//    @ResponseStatus(HttpStatus.OK)
-//    @Operation(summary = "Get lobby by id")
-//    public Lobby getLobbyById(@PathVariable String lobbyId) {
-//        return lobbyService.getLobbyById(lobbyId);
-//    }
-//
-//    @PostMapping
-//    @ResponseStatus(HttpStatus.CREATED)
-//    @Operation(summary = "Create lobby")
-//    public Lobby createLobby(@RequestBody CreateLobbyDto createLobbyDto) {
-//        return lobbyService.createLobby(createLobbyDto.getMode(), createLobbyDto.getSteamId());
-//    }
-//
-//    @PostMapping("/{lobbyId}")
-//    @ResponseStatus(HttpStatus.CREATED)
-//    @Operation(summary = "Add player")
-//    public void addPlayer(@RequestBody AddUserToLobbyDto dto, @PathVariable String lobbyId) {
-//        lobbyService.addPlayer(UUID.fromString(lobbyId), dto.getSteamId(), dto.getTeam());
-//    }
-//
-//    @DeleteMapping("/{lobbyId}")
-//    @ResponseStatus(HttpStatus.NO_CONTENT)
-//    @Operation(summary = "Delete player from team")
-//    public void deletePlayer(@PathVariable String lobbyId, @RequestBody RemoveUserFromLobbyDto dto){
-//        lobbyService.removePlayer(UUID.fromString(lobbyId), dto.getSteamId());
-//    }
+    @MessageMapping("/getLobby")
+    public void sendLobby(@Payload String lobbyId) {
+        Lobby lobby = lobbyService.getLobbyById(lobbyId);
+        messagingTemplate.convertAndSend("/topic/lobby", lobby);
+    }
 }
