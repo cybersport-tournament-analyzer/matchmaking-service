@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -41,6 +40,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
     }
 
+
     @Override
     public Lobby createLobby(String mode, String steamId) {
         if (!List.of("1x1", "2x2", "5x5").contains(mode)) {
@@ -48,11 +48,11 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode,  new ArrayList<>(), new ArrayList<>(), LocalDateTime.now());
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new ArrayList<>(), new ArrayList<>());
         lobby.getTeam1().add(creator);
 
         try (Jedis jedis = jedisPool.getResource()) {
-            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
+            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 120, JsonUtils.toJson(lobby));
         }
 
         return lobby;
@@ -67,17 +67,17 @@ public class LobbyServiceImpl implements LobbyService {
             if (json == null) throw new LobbyNotFoundException("Lobby not found!");
 
             Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-            if (lobby.isFull()) throw new LobbyIsFullException("Lobby is full!");
+            if (lobby.full()) throw new LobbyIsFullException("Lobby is full!");
 
             List<UserDto> targetTeam = "team1".equals(team) ? lobby.getTeam1() : lobby.getTeam2();
-            if (targetTeam.size() >= lobby.getMaxPlayersPerTeam()) {
+            if (targetTeam.size() >= lobby.maxPlayersPerTeam()) {
                 throw new TeamIsFullException("Chosen team is full!");
             }
 
             UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
             targetTeam.add(currentPlayer);
 
-            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            jedis.setex(key, 120, JsonUtils.toJson(lobby));
         }
     }
 
@@ -96,7 +96,7 @@ public class LobbyServiceImpl implements LobbyService {
             if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
                 jedis.del(key);
             } else {
-                jedis.setex(key, 600, JsonUtils.toJson(lobby));
+                jedis.setex(key, 120, JsonUtils.toJson(lobby));
             }
         }
     }
