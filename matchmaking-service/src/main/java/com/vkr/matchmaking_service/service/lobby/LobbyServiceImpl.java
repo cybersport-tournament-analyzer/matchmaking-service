@@ -9,6 +9,7 @@ import com.vkr.matchmaking_service.exception.TeamIsFullException;
 import com.vkr.matchmaking_service.exception.WrongInputException;
 import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -20,7 +21,7 @@ import java.util.*;
 public class LobbyServiceImpl implements LobbyService {
 
     private final UserServiceClient userServiceClient;
-    private final JedisPool jedisPool; // Используем JedisPool вместо RedisTemplate
+    private final JedisPool jedisPool;
     private static final String LOBBY_KEY_PREFIX = "lobby:";
 
     @Override
