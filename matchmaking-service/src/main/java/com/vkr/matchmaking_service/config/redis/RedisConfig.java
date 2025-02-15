@@ -27,6 +27,7 @@ public class RedisConfig {
      */
     @Bean
     public JedisConnectionFactory redisConnectionFactory() {
+        System.out.println("кто прочитал тот долбаеб");
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
         return new JedisConnectionFactory(config);
     }
