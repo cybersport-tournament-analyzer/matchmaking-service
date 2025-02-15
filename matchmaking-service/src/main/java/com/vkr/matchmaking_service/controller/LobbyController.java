@@ -39,6 +39,17 @@ public class LobbyController {
         return lobbyService.getLobbyById(lobbyId.toString());
     }
 
+    @MessageMapping("/ready")
+    @SendTo("/topic/lobby")
+    public Lobby setPlayerReady(@Payload Map<String, String> data) {
+        UUID lobbyId = UUID.fromString(data.get("lobbyId"));
+        String steamId = data.get("steamId");
+        boolean ready = Boolean.parseBoolean(data.get("ready"));
+
+        lobbyService.setReady(lobbyId, steamId, ready);
+        return lobbyService.getLobbyById(lobbyId.toString());
+    }
+
     @MessageMapping("/leave")
     @SendTo("/topic/lobby")
     public Lobby leaveLobby(@Payload Map<String, String> data) {

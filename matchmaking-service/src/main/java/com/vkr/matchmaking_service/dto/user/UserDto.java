@@ -20,6 +20,7 @@ public class UserDto {
     private Long hoursPlayed;
     private Long ratingElo;
     private Long faceitWinrate;
+    private boolean ready = false;
 
     @Enumerated(EnumType.STRING)
     private Role role;

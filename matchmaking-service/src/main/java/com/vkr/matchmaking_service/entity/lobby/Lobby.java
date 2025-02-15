@@ -7,7 +7,6 @@ import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -42,5 +41,11 @@ public class Lobby {
     public boolean full() {
         return team1.size() + team2.size() >= maxPlayersPerTeam() * 2;
     }
+
+    public void setReady(String steamId, boolean ready) {
+        team1.stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+        team2.stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+    }
+
 }
 

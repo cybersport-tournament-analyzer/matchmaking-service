@@ -16,4 +16,6 @@ public interface LobbyService {
     void removePlayer(UUID lobbyId, String steamId);
 
     Lobby getLobbyById(String lobbyId);
+
+    void setReady(UUID lobbyId, String steamId, boolean ready);
 }

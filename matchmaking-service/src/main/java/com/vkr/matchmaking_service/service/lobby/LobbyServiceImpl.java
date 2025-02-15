@@ -109,5 +109,21 @@ public class LobbyServiceImpl implements LobbyService {
             return JsonUtils.fromJson(json, Lobby.class);
         }
     }
+
+    @Override
+    public void setReady(UUID lobbyId, String steamId, boolean ready) {
+        String key = LOBBY_KEY_PREFIX + lobbyId;
+
+        try (Jedis jedis = jedisPool.getResource()) {
+            String json = jedis.get(key);
+            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
+
+            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
+            lobby.setReady(steamId, ready);
+
+            jedis.setex(key, 120, JsonUtils.toJson(lobby));
+        }
+    }
+
 }
 
