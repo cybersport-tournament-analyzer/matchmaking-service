@@ -5,9 +5,10 @@ import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
 import java.util.Map;
@@ -21,53 +22,49 @@ public class LobbyController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/create")
-    @SendTo("/topic/lobby")
-    public Lobby createLobby(@Payload Map<String, String> data) {
+    public void createLobby(@Payload Map<String, String> data) {
         String mode = data.get("mode");
         String steamId = data.get("steamId");
         Lobby lobby = lobbyService.createLobby(mode, steamId);
-        return lobby;
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobby.getId(), lobby);
     }
 
     @MessageMapping("/join")
-    @SendTo("/topic/lobby")
-    public Lobby joinLobby(@Payload Map<String, String> data) {
+    public void joinLobby(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
         String team = data.get("team");
         lobbyService.addPlayer(lobbyId, steamId, team);
-        return lobbyService.getLobbyById(lobbyId.toString());
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
     @MessageMapping("/ready")
-    @SendTo("/topic/lobby")
-    public Lobby setPlayerReady(@Payload Map<String, String> data) {
+    public void setPlayerReady(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
         boolean ready = Boolean.parseBoolean(data.get("ready"));
 
         lobbyService.setReady(lobbyId, steamId, ready);
-        return lobbyService.getLobbyById(lobbyId.toString());
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
     @MessageMapping("/leave")
-    @SendTo("/topic/lobby")
-    public Lobby leaveLobby(@Payload Map<String, String> data) {
+    public void leaveLobby(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
         lobbyService.removePlayer(lobbyId, steamId);
-        return lobbyService.getLobbyById(lobbyId.toString());
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
-    @MessageMapping("/getLobbies")
-    public void sendAllLobbies() {
-        List<Lobby> lobbies = lobbyService.getAllLobbies();
-        messagingTemplate.convertAndSend("/topic/lobby", lobbies);
+    @GetMapping("/lobby")
+    @ResponseBody
+    public List<Lobby> sendAllLobbies() {
+        return lobbyService.getAllLobbies();
     }
 
     @MessageMapping("/getLobby")
     public void sendLobby(@Payload String lobbyId) {
         Lobby lobby = lobbyService.getLobbyById(lobbyId);
-        messagingTemplate.convertAndSend("/topic/lobby", lobby);
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
     }
 }
