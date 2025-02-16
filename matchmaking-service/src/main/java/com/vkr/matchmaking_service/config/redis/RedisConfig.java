@@ -37,8 +37,8 @@ public class RedisConfig {
     @RefreshScope
     public JedisPool jedisPool() {
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setJmxNamePrefix("my-pool-2");
-        return new JedisPool(poolConfig);
+//        poolConfig.setJmxNamePrefix("my-pool-2");
+        return new JedisPool(poolConfig,host,port);
     }
 
     @Bean

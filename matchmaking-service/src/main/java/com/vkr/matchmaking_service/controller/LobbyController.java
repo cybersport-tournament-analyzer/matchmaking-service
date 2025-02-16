@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.controller;
 
+import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
@@ -21,12 +24,14 @@ public class LobbyController {
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @MessageMapping("/create")
-    public void createLobby(@Payload Map<String, String> data) {
-        String mode = data.get("mode");
-        String steamId = data.get("steamId");
+    @PostMapping("/create")
+    @ResponseBody
+    public String createLobby(@RequestBody CreateLobbyDto data) {
+        System.out.println("Отработал креате");
+        String mode = data.getMode();
+        String steamId = data.getSteamId();
         Lobby lobby = lobbyService.createLobby(mode, steamId);
-        messagingTemplate.convertAndSend("/topic/lobby/" + lobby.getId(), lobby);
+       return lobby.getId().toString();
     }
 
     @MessageMapping("/join")
