@@ -17,7 +17,7 @@ import lombok.extern.jackson.Jacksonized;
 public class UserDto {
 
     private String steamId;
-    private String username;
+    private String steamUsername;
     private Long hoursPlayed;
     private Long ratingElo;
     private Long faceitWinrate;
