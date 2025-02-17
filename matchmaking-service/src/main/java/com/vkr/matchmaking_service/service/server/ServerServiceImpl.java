@@ -1,7 +1,12 @@
 package com.vkr.matchmaking_service.service.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
+import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
+import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
+import com.vkr.matchmaking_service.exception.MatchNotFoundException;
 import com.vkr.matchmaking_service.exception.ServerNotFoundException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +38,11 @@ public class ServerServiceImpl implements ServerService {
 
     private String auth;
 
-    @Value("${dathost.url}")
-    private String url;
+    @Value("${dathost.matches-url}")
+    private String matchesUrl;
+
+    @Value("${dathost.servers-url}")
+    private String serversUrl;
 
     @PostConstruct
     public void init() {
@@ -46,7 +54,7 @@ public class ServerServiceImpl implements ServerService {
     @Override
     public Page<Server> getAllServers(Pageable pageable) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
+                .uri(URI.create(serversUrl))
                 .header("accept", "application/json")
                 .header("Authorization", "Basic " + auth)
                 .method("GET", HttpRequest.BodyPublishers.noBody())
@@ -63,7 +71,7 @@ public class ServerServiceImpl implements ServerService {
     @Override
     public void startServer(String serverId) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + "/" + serverId + "/start"))
+                .uri(URI.create(serversUrl + "/" + serverId + "/start"))
                 .header("content-type", "multipart/form-data")
                 .header("Authorization", "Basic " + auth)
                 .method("POST", HttpRequest.BodyPublishers.noBody())
@@ -80,7 +88,7 @@ public class ServerServiceImpl implements ServerService {
     @Override
     public void stopServer(String serverId) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + "/" + serverId + "/stop"))
+                .uri(URI.create(serversUrl + "/" + serverId + "/stop"))
                 .header("Authorization", "Basic " + auth)
                 .method("POST", HttpRequest.BodyPublishers.noBody())
                 .build();
@@ -94,7 +102,7 @@ public class ServerServiceImpl implements ServerService {
     @Override
     public Server getServerById(String serverId) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url + "/" + serverId))
+                .uri(URI.create(serversUrl + "/" + serverId))
                 .header("accept", "application/json")
                 .header("Authorization", "Basic " + auth)
                 .method("GET", HttpRequest.BodyPublishers.noBody())
@@ -114,6 +122,81 @@ public class ServerServiceImpl implements ServerService {
     public String getServerIp(String serverId) throws IOException, InterruptedException {
         Server server = getServerById(serverId);
         return "connect " + server.getIp() + ":" + server.getPorts().getGame();
+    }
+
+    @Override
+    public Match startMatch(MatchStartingDto matchStartingDto) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(matchesUrl))
+                .header("accept", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .header("content-type", "application/json")
+                .method("POST", HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(matchStartingDto)))
+                .build();
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new ServerNotFoundException("Server with id " + matchStartingDto.getGame_server_id() + " not found!");
+        }
+
+        log.info("Started match successfully: {}", response.body());
+
+        return objectMapper.readValue(response.body(), Match.class);
+    }
+
+    @Override
+    public Match getMatchById(String matchId) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(matchesUrl + "/" + matchId))
+                .header("accept", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new MatchNotFoundException("Match with id " + matchId + " not found");
+        }
+
+        return objectMapper.readValue(response.body(), Match.class);
+    }
+
+    @Override
+    public Match stopMatch(String matchId) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(matchesUrl + matchId + "/cancel"))
+                .header("accept", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .method("POST", HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new MatchNotFoundException("Match with id " + matchId + " not found");
+        }
+
+        return objectMapper.readValue(response.body(), Match.class);
+    }
+
+    @Override
+    public MatchPlayerDto addPlayerToMatch(String matchId, StartMatchPlayerDto startMatchPlayerDto) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(matchesUrl + "/" + matchId + "/players"))
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .method("POST", HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(startMatchPlayerDto)))
+                .build();
+
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new MatchNotFoundException("Match with id " + matchId + " not found");
+        }
+
+        return objectMapper.readValue(response.body(), MatchPlayerDto.class);
     }
 
 }

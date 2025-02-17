@@ -20,7 +20,7 @@ public class Server {
         private String location;
         private int players_online;
 
-        private List<String> status;
+        private List<ServerStatus> status;
         private boolean booting;
         private String server_error;
         private String ip;
@@ -112,3 +112,4 @@ public class Server {
         }
 
 }
+

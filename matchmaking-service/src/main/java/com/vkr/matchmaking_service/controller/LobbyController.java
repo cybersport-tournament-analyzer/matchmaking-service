@@ -3,15 +3,14 @@ package com.vkr.matchmaking_service.controller;
 import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +25,8 @@ public class LobbyController {
 
     @PostMapping("/create")
     @ResponseBody
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Create lobby")
     public String createLobby(@RequestBody CreateLobbyDto data) {
         System.out.println("Отработал креате");
         String mode = data.getMode();
@@ -63,6 +64,8 @@ public class LobbyController {
 
     @GetMapping("/lobby")
     @ResponseBody
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Get all lobbies")
     public List<Lobby> sendAllLobbies() {
         return lobbyService.getAllLobbies();
     }

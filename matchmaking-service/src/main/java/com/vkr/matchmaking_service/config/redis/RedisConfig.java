@@ -27,7 +27,6 @@ public class RedisConfig {
      */
     @Bean
     public JedisConnectionFactory redisConnectionFactory() {
-        System.out.println("кто прочитал тот долбаеб");
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
         return new JedisConnectionFactory(config);
     }
@@ -37,8 +36,8 @@ public class RedisConfig {
     @RefreshScope
     public JedisPool jedisPool() {
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-//        poolConfig.setJmxNamePrefix("my-pool-2");
-        return new JedisPool(poolConfig,host,port);
+        poolConfig.setJmxNamePrefix("my-pool-2");
+        return new JedisPool(poolConfig);
     }
 
     @Bean

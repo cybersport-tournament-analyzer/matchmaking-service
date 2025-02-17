@@ -1,0 +1,20 @@
+package com.vkr.matchmaking_service.dto.match;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.extern.jackson.Jacksonized;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Jacksonized
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class StartMatchPlayerDto {
+    private String steam_id_64;
+    private String team; //team1, team2, spectator
+    private String nickname_override;
+}
