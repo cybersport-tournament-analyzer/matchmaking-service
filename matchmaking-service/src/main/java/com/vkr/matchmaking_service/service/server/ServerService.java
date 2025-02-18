@@ -12,6 +12,8 @@ import java.io.IOException;
 
 public interface ServerService {
 
+    Server getAvailableServer() throws IOException, InterruptedException;
+
     Page<Server> getAllServers(Pageable pageable) throws IOException, InterruptedException;
 
     void startServer(String serverId) throws IOException, InterruptedException;

@@ -9,7 +9,6 @@ import com.vkr.matchmaking_service.exception.TeamIsFullException;
 import com.vkr.matchmaking_service.exception.WrongInputException;
 import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -21,6 +20,7 @@ import java.util.*;
 public class LobbyServiceImpl implements LobbyService {
 
     private final UserServiceClient userServiceClient;
+    private final PickBanService pickBanService;
     private final JedisPool jedisPool;
     private static final String LOBBY_KEY_PREFIX = "lobby:";
 
@@ -124,6 +124,16 @@ public class LobbyServiceImpl implements LobbyService {
 
             jedis.setex(key, 120, JsonUtils.toJson(lobby));
         }
+    }
+
+    @Override
+    public boolean checkAndStartPickBan(String lobbyId) {
+        Lobby lobby = getLobbyById(lobbyId);
+        if (lobby == null) return false;
+
+        return lobby.getTeam1().stream().allMatch(UserDto::isReady) &&
+                lobby.getTeam2().stream().allMatch(UserDto::isReady) &&
+                lobby.getTeam1().size() + lobby.getTeam2().size() == lobby.maxPlayersPerTeam() * 2;
     }
 
 }

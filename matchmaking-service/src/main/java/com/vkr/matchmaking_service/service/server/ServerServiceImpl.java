@@ -52,6 +52,19 @@ public class ServerServiceImpl implements ServerService {
     private final ObjectMapper objectMapper;
 
     @Override
+    public Server getAvailableServer() throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serversUrl))
+                .header("accept", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build();
+                HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        List<Server> servers = objectMapper.readValue(response.body(), objectMapper.getTypeFactory().constructCollectionType(List.class, Server.class));
+        return servers.stream().filter(s -> !s.isOn()).findFirst().orElseThrow();
+    }
+
+    @Override
     public Page<Server> getAllServers(Pageable pageable) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(serversUrl))

@@ -18,4 +18,6 @@ public interface LobbyService {
     Lobby getLobbyById(String lobbyId);
 
     void setReady(UUID lobbyId, String steamId, boolean ready);
+
+    boolean checkAndStartPickBan(String lobbyId);
 }
