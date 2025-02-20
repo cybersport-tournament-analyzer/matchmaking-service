@@ -22,6 +22,7 @@ public class UserDto {
     private Long ratingElo;
     private Long faceitWinrate;
     private boolean ready = false;
+    private boolean captain = false;
 
     @Enumerated(EnumType.STRING)
     private Role role;

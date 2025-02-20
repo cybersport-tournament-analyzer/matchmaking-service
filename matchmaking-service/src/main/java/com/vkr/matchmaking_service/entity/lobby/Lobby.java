@@ -1,6 +1,7 @@
 package com.vkr.matchmaking_service.entity.lobby;
 
 import com.vkr.matchmaking_service.dto.user.UserDto;
+import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import jakarta.persistence.Id;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
@@ -17,7 +18,7 @@ import java.util.UUID;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-@RedisHash(value = "lobby", timeToLive = 120)
+@RedisHash(value = "lobby", timeToLive = 600)
 @Jacksonized
 public class Lobby {
 
@@ -26,6 +27,10 @@ public class Lobby {
 
     @Indexed
     private String mode;
+
+    private PickBanSession pickBanSession;
+
+    private String format;
 
     private List<UserDto> team1 = new ArrayList<>();
     private List<UserDto> team2 = new ArrayList<>();

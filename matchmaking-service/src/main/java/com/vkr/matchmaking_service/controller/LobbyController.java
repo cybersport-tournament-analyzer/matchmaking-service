@@ -6,6 +6,8 @@ import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.entity.pickbans.Action;
+import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,9 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LobbyController {
 
-    private static final Logger log = LoggerFactory.getLogger(LobbyController.class);
     private final LobbyService lobbyService;
-    private final ServerService serverService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("/create")
@@ -41,7 +41,8 @@ public class LobbyController {
     public String createLobby(@RequestBody CreateLobbyDto data) {
         String mode = data.getMode();
         String steamId = data.getSteamId();
-        Lobby lobby = lobbyService.createLobby(mode, steamId);
+        String format = data.getFormat();
+        Lobby lobby = lobbyService.createLobby(mode, format, steamId);
        return lobby.getId().toString();
     }
 
@@ -55,39 +56,17 @@ public class LobbyController {
     }
 
     @MessageMapping("/ready")
-    public void setPlayerReady(@Payload Map<String, String> data) throws IOException, InterruptedException {
+    public void setPlayerReady(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
         boolean ready = Boolean.parseBoolean(data.get("ready"));
 
         lobbyService.setReady(lobbyId, steamId, ready);
-        if (lobbyService.checkAndStartPickBan(String.valueOf(lobbyId))){
-            String id = serverService.getAvailableServer().getId();
-            serverService.startServer(id);
-            MatchStartingDto matchStartingDto = new MatchStartingDto();
-            matchStartingDto.setGame_server_id(id);
-            MatchSettingsDto matchSettingsDto = new MatchSettingsDto();
-            matchSettingsDto.setMap("de_inferno");
-            matchSettingsDto.setTeam_size(lobbyService.getLobbyById(String.valueOf(lobbyId)).maxPlayersPerTeam());
-            matchSettingsDto.setPassword("");
-            List<StartMatchPlayerDto> startMatchPlayerDtoList = new ArrayList<>();
-            for(UserDto userDto : lobbyService.getLobbyById(String.valueOf(lobbyId)).getTeam1()){
-                StartMatchPlayerDto startMatchPlayerDto = new StartMatchPlayerDto();
-                startMatchPlayerDto.setTeam("team1");
-                startMatchPlayerDto.setSteam_id_64(userDto.getSteamId());
-                startMatchPlayerDtoList.add(startMatchPlayerDto);
-            }
-            for(UserDto userDto : lobbyService.getLobbyById(String.valueOf(lobbyId)).getTeam2()){
-                StartMatchPlayerDto startMatchPlayerDto = new StartMatchPlayerDto();
-                startMatchPlayerDto.setTeam("team2");
-                startMatchPlayerDto.setSteam_id_64(userDto.getSteamId());
-                startMatchPlayerDtoList.add(startMatchPlayerDto);
-            }
-            matchStartingDto.setPlayers(startMatchPlayerDtoList);
-            matchStartingDto.setSettings(matchSettingsDto);
-            serverService.startMatch(matchStartingDto);
+
+        if (lobbyService.checkAndStartPickBan(String.valueOf(lobbyId))) {
+            lobbyService.initializePickBanSession(lobbyService.getLobbyById(lobbyId.toString()));
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
         }
-        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
     @MessageMapping("/leave")
@@ -111,4 +90,26 @@ public class LobbyController {
         Lobby lobby = lobbyService.getLobbyById(lobbyId);
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
     }
+
+    @MessageMapping("/pickban")
+    public void handlePickBanAction(@Payload Map<String, String> data) throws IOException, InterruptedException {
+        UUID lobbyId = UUID.fromString(data.get("lobbyId"));
+        String steamId = data.get("steamId");
+        Action actionType = Action.valueOf(data.get("actionType"));
+        String map = data.get("map");
+        String side = data.get("side");
+
+        lobbyService.processPickBanAction(lobbyId, steamId, actionType, map, side);
+
+        Lobby lobby = lobbyService.getLobbyById(lobbyId.toString());
+        PickBanSession session = lobby.getPickBanSession();
+
+        if (session.isCompleted()) {
+            lobbyService.startMatch(lobby);
+        }
+
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, session);
+    }
+
+
 }

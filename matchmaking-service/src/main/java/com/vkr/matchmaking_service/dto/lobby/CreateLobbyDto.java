@@ -14,4 +14,5 @@ import lombok.extern.jackson.Jacksonized;
 public class CreateLobbyDto {
     private String mode;
     private String steamId;
+    private String format;
 }
