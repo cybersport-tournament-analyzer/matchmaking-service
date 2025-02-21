@@ -18,13 +18,12 @@ public class PickBanSession {
     private List<String> sides = new ArrayList<>(List.of("T", "CT"));
     private List<PickBanAction> actionsLogs = new ArrayList<>();
     private List<String> pickedMaps = new ArrayList<>();
-    private Map<String, String> sideSelections = new HashMap<>();
+    private List<SideSelection> sideSelections = new ArrayList<>();
 
     private String format;
     private UUID lobbyId;
     private String currentTeamTurn;
     private Action nextActionType;
-    private int phaseNumber;
     private CustomTimerTask currentTimer;
     private boolean completed = false;
 

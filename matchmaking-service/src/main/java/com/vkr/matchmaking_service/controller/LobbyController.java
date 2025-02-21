@@ -65,8 +65,8 @@ public class LobbyController {
 
         if (lobbyService.checkAndStartPickBan(String.valueOf(lobbyId))) {
             lobbyService.initializePickBanSession(lobbyService.getLobbyById(lobbyId.toString()));
-            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
         }
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
     @MessageMapping("/leave")
@@ -108,7 +108,7 @@ public class LobbyController {
             lobbyService.startMatch(lobby);
         }
 
-        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, session);
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
     }
 
 

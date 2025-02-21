@@ -9,6 +9,7 @@ import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
+import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
 import com.vkr.matchmaking_service.exception.LobbyIsFullException;
 import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
 import com.vkr.matchmaking_service.exception.TeamIsFullException;
@@ -90,11 +91,10 @@ public class LobbyServiceImpl implements LobbyService {
             }
 
             UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
-            if (targetTeam.isEmpty()){
+            if (targetTeam.isEmpty()) {
                 targetTeam.add(currentPlayer);
                 targetTeam.get(0).setCaptain(true);
-            }
-            else{
+            } else {
                 targetTeam.add(currentPlayer);
             }
 
@@ -167,8 +167,6 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) {
         String key = LOBBY_KEY_PREFIX + lobbyId;
-        log.info("processPickBanAction");
-        System.out.println(steamId + actionType + map);
 
         try (Jedis jedis = jedisPool.getResource()) {
             String json = jedis.get(key);
@@ -183,9 +181,6 @@ public class LobbyServiceImpl implements LobbyService {
 
             updateSessionState(session, action);
             lobby.setPickBanSession(session);
-            System.out.println(session.getNextActionType());
-            System.out.println(session.getCurrentTeamTurn());
-            System.out.println(session.getActionsLogs());
 
             jedis.setex(key, 600, JsonUtils.toJson(lobby));
             startNewTimerIfNeeded(session);
@@ -196,7 +191,6 @@ public class LobbyServiceImpl implements LobbyService {
     public void handleTimeout(UUID lobbyId) {
         Lobby lobby = getLobbyById(lobbyId.toString());
         PickBanSession session = lobby.getPickBanSession();
-        log.info("handleTimeout");
 
         String randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
         String team = session.getCurrentTeamTurn();
@@ -225,10 +219,6 @@ public class LobbyServiceImpl implements LobbyService {
         startNewTimerIfNeeded(session);
         lobby.setPickBanSession(session);
         saveAndNotify(lobby);
-        log.info("initializePickBanSession");
-        System.out.println(session.getNextActionType());
-        System.out.println(session.getCurrentTeamTurn());
-        System.out.println(session.getActionsLogs());
     }
 
     @Override
@@ -287,11 +277,12 @@ public class LobbyServiceImpl implements LobbyService {
             session.setNextActionType(Action.PICK_SIDE);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
         }
-        if(session.getActionsLogs().size() == 6){
+        if (session.getActionsLogs().size() == 6) {
             String lastMap = session.getMaps().remove(0);
             session.getPickedMaps().add(lastMap);
-            session.getSideSelections().put(lastMap, session.getActionsLogs().get(5).getMapOrSide());
+            session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.setCompleted(true);
+            session.setNextActionType(null);
         }
         session.getActionsLogs().add(action);
     }
@@ -300,12 +291,12 @@ public class LobbyServiceImpl implements LobbyService {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
-        if (Action.BAN.equals(action.getAction())) {
+        if (Action.BAN.equals(action.getAction()) && maps.size() != 1) {
             maps.remove(action.getMapOrSide());
         } else if (Action.PICK.equals(action.getAction())) {
             session.getPickedMaps().add(action.getMapOrSide());
         } else if (Action.PICK_SIDE.equals(action.getAction())) {
-            session.getSideSelections().put(action.getMapOrSide(), action.getTeam());
+            session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
         }
 
@@ -325,28 +316,32 @@ public class LobbyServiceImpl implements LobbyService {
             }
         } else if (actions.size() < 8) {
             session.setNextActionType(Action.BAN);
-        } else {
-            String lastMap = maps.get(0);
-            session.getPickedMaps().add(lastMap);
-            session.getSideSelections().put(lastMap, getRandomSide());
-            session.setCompleted(true);
         }
-
         session.getActionsLogs().add(action);
-
         session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+
+        if (maps.size() == 1) {
+            String lastMap = maps.remove(0);
+            session.getPickedMaps().add(lastMap);
+            session.getSideSelections().add(new SideSelection(getRandomSide(), action.getTeam()));
+            session.getActionsLogs().add(new PickBanAction("LEFT OVER", Action.PICK, lastMap));
+            session.getActionsLogs().add(new PickBanAction("RANDOM SIDE", Action.PICK_SIDE,
+                    session.getSideSelections().get(session.getSideSelections().size() - 1).getSide()));
+            session.setCompleted(true);
+            session.setNextActionType(null);
+        }
     }
 
     private void updateBo5State(PickBanSession session, PickBanAction action) {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
-        if (Action.BAN.equals(action.getAction())) {
+        if (Action.BAN.equals(action.getAction()) && maps.size() != 1) {
             maps.remove(action.getMapOrSide());
         } else if (Action.PICK.equals(action.getAction())) {
             session.getPickedMaps().add(action.getMapOrSide());
         } else if (Action.PICK_SIDE.equals(action.getAction())) {
-            session.getSideSelections().put(action.getMapOrSide(), action.getTeam());
+            session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
         }
 
@@ -358,16 +353,20 @@ public class LobbyServiceImpl implements LobbyService {
             } else {
                 session.setNextActionType(Action.PICK_SIDE);
             }
-        } else {
-            String lastMap = maps.get(0);
-            session.getPickedMaps().add(lastMap);
-            session.getSideSelections().put(lastMap, getRandomSide());
-            session.setCompleted(true);
         }
-
         session.getActionsLogs().add(action);
-
         session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+
+        if (maps.size() == 1) {
+            String lastMap = maps.remove(0);
+            session.getPickedMaps().add(lastMap);
+            session.getSideSelections().add(new SideSelection(getRandomSide(), action.getTeam()));
+            session.getActionsLogs().add(new PickBanAction("LEFT OVER", Action.PICK, lastMap));
+            session.getActionsLogs().add(new PickBanAction("RANDOM SIDE", Action.PICK_SIDE,
+                    session.getSideSelections().get(session.getSideSelections().size() - 1).getSide()));
+            session.setCompleted(true);
+            session.setNextActionType(null);
+        }
     }
 
     private void startNewTimerIfNeeded(PickBanSession session) {
