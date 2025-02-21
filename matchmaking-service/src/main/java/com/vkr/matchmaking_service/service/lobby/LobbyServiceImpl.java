@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Transaction;
 
 import java.io.IOException;
 import java.util.*;
@@ -63,6 +64,7 @@ public class LobbyServiceImpl implements LobbyService {
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
         Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new ArrayList<>(), new ArrayList<>());
         lobby.getTeam1().add(creator);
+        lobby.getTeam1().get(0).setCaptain(true);
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
@@ -88,9 +90,17 @@ public class LobbyServiceImpl implements LobbyService {
             }
 
             UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
-            targetTeam.add(currentPlayer);
+            if (targetTeam.isEmpty()){
+                targetTeam.add(currentPlayer);
+                targetTeam.get(0).setCaptain(true);
+            }
+            else{
+                targetTeam.add(currentPlayer);
+            }
 
-            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            Transaction transaction = jedis.multi();
+            transaction.setex(key, 600, JsonUtils.toJson(lobby));
+            transaction.exec();
         }
     }
 
@@ -157,6 +167,8 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) {
         String key = LOBBY_KEY_PREFIX + lobbyId;
+        log.info("processPickBanAction");
+        System.out.println(steamId + actionType + map);
 
         try (Jedis jedis = jedisPool.getResource()) {
             String json = jedis.get(key);
@@ -170,6 +182,10 @@ public class LobbyServiceImpl implements LobbyService {
                     .action(actionType).mapOrSide(map != null ? map : side).build();
 
             updateSessionState(session, action);
+            lobby.setPickBanSession(session);
+            System.out.println(session.getNextActionType());
+            System.out.println(session.getCurrentTeamTurn());
+            System.out.println(session.getActionsLogs());
 
             jedis.setex(key, 600, JsonUtils.toJson(lobby));
             startNewTimerIfNeeded(session);
@@ -180,6 +196,7 @@ public class LobbyServiceImpl implements LobbyService {
     public void handleTimeout(UUID lobbyId) {
         Lobby lobby = getLobbyById(lobbyId.toString());
         PickBanSession session = lobby.getPickBanSession();
+        log.info("handleTimeout");
 
         String randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
         String team = session.getCurrentTeamTurn();
@@ -195,13 +212,10 @@ public class LobbyServiceImpl implements LobbyService {
 
     @Override
     public void initializePickBanSession(Lobby lobby) {
-        String firstTeam = (new Random().nextInt(2) == 0) ? "team1" : "team2";
+//        String firstTeam = (new Random().nextInt(2) == 0) ? "team1" : "team2";
+        String firstTeam = "team1";
 
-        PickBanSession session = PickBanSession.builder().lobbyId(lobby.getId())
-                .format(lobby.getFormat())
-                .currentTeamTurn("team1")
-                .nextActionType(Action.BAN).build();
-
+        PickBanSession session = lobby.getPickBanSession();
         session.setLobbyId(lobby.getId());
         session.setFormat(lobby.getFormat());
 
@@ -211,6 +225,10 @@ public class LobbyServiceImpl implements LobbyService {
         startNewTimerIfNeeded(session);
         lobby.setPickBanSession(session);
         saveAndNotify(lobby);
+        log.info("initializePickBanSession");
+        System.out.println(session.getNextActionType());
+        System.out.println(session.getCurrentTeamTurn());
+        System.out.println(session.getActionsLogs());
     }
 
     @Override
@@ -269,6 +287,12 @@ public class LobbyServiceImpl implements LobbyService {
             session.setNextActionType(Action.PICK_SIDE);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
         }
+        if(session.getActionsLogs().size() == 6){
+            String lastMap = session.getMaps().remove(0);
+            session.getPickedMaps().add(lastMap);
+            session.getSideSelections().put(lastMap, session.getActionsLogs().get(5).getMapOrSide());
+            session.setCompleted(true);
+        }
         session.getActionsLogs().add(action);
     }
 
@@ -282,6 +306,7 @@ public class LobbyServiceImpl implements LobbyService {
             session.getPickedMaps().add(action.getMapOrSide());
         } else if (Action.PICK_SIDE.equals(action.getAction())) {
             session.getSideSelections().put(action.getMapOrSide(), action.getTeam());
+            session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
         }
 
         if (actions.size() < 2) {
@@ -322,6 +347,7 @@ public class LobbyServiceImpl implements LobbyService {
             session.getPickedMaps().add(action.getMapOrSide());
         } else if (Action.PICK_SIDE.equals(action.getAction())) {
             session.getSideSelections().put(action.getMapOrSide(), action.getTeam());
+            session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
         }
 
         if (actions.size() < 2) {
@@ -352,7 +378,7 @@ public class LobbyServiceImpl implements LobbyService {
         CustomTimerTask timerTask = new CustomTimerTask(() -> handleTimeout(session.getLobbyId()));
 
         Timer timer = new Timer();
-        timer.schedule(timerTask, 30000);
+        timer.schedule(timerTask, 100000);
 
         session.setCurrentTimer(timerTask);
     }

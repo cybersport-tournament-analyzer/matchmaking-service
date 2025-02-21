@@ -95,7 +95,7 @@ public class LobbyController {
     public void handlePickBanAction(@Payload Map<String, String> data) throws IOException, InterruptedException {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
-        Action actionType = Action.valueOf(data.get("actionType"));
+        Action actionType = Action.fromString(data.get("action"));
         String map = data.get("map");
         String side = data.get("side");
 
