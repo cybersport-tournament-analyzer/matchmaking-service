@@ -14,6 +14,7 @@ import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
 import com.vkr.matchmaking_service.exception.TeamIsFullException;
 import com.vkr.matchmaking_service.exception.WrongInputException;
 import com.vkr.matchmaking_service.service.server.ServerService;
+import com.vkr.matchmaking_service.utils.CustomTimerTask;
 import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -188,13 +189,12 @@ public class LobbyServiceImpl implements LobbyService {
 
         session.getActionsLogs().add(action);
         updateSessionState(session, action);
-
+        lobby.setPickBanSession(session);
         saveAndNotify(lobby);
     }
 
     @Override
     public void initializePickBanSession(Lobby lobby) {
-
         String firstTeam = (new Random().nextInt(2) == 0) ? "team1" : "team2";
 
         PickBanSession session = PickBanSession.builder().lobbyId(lobby.getId())
@@ -208,8 +208,9 @@ public class LobbyServiceImpl implements LobbyService {
         session.setCurrentTeamTurn(firstTeam);
         session.setNextActionType(Action.BAN);
 
-        lobby.setPickBanSession(session);
         startNewTimerIfNeeded(session);
+        lobby.setPickBanSession(session);
+        saveAndNotify(lobby);
     }
 
     @Override
@@ -348,15 +349,11 @@ public class LobbyServiceImpl implements LobbyService {
             session.getCurrentTimer().cancel();
         }
 
-        TimerTask timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                handleTimeout(session.getLobbyId());
-            }
-        };
+        CustomTimerTask timerTask = new CustomTimerTask(() -> handleTimeout(session.getLobbyId()));
 
         Timer timer = new Timer();
         timer.schedule(timerTask, 30000);
+
         session.setCurrentTimer(timerTask);
     }
 
