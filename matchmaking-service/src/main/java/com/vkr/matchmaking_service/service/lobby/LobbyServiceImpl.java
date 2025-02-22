@@ -182,7 +182,7 @@ public class LobbyServiceImpl implements LobbyService {
             updateSessionState(session, action);
             lobby.setPickBanSession(session);
 
-            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            jedis.setex(key, 6000, JsonUtils.toJson(lobby));
             startNewTimerIfNeeded(session);
         }
     }
@@ -269,35 +269,52 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     private void updateBo1State(PickBanSession session, PickBanAction action) {
-        if (Action.BAN.equals(action.getAction())) {
+        if (Action.BAN.equals(action.getAction()) && session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getMaps().remove(action.getMapOrSide());
+            session.getActionsLogs().add(action);
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+        }
+
+        if (session.getActionsLogs().size() == 6 && session.getNextActionType().equals(Action.PICK_SIDE)
+        && session.getCurrentTeamTurn().equals(action.getTeam())) {
+            String lastMap = session.getMaps().remove(0);
+            session.getPickedMaps().add(lastMap);
+            session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
+            session.setCompleted(true);
+            session.setNextActionType(null);
+            session.setCurrentTeamTurn(null);
+            session.getActionsLogs().add(action);
         }
 
         if (session.getMaps().size() == 1) {
             session.setNextActionType(Action.PICK_SIDE);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
         }
-        if (session.getActionsLogs().size() == 6) {
-            String lastMap = session.getMaps().remove(0);
-            session.getPickedMaps().add(lastMap);
-            session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
-            session.setCompleted(true);
-            session.setNextActionType(null);
-        }
-        session.getActionsLogs().add(action);
+
     }
 
     private void updateBo3State(PickBanSession session, PickBanAction action) {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
-        if (Action.BAN.equals(action.getAction()) && maps.size() != 1) {
+        if (session.getNextActionType().equals(action.getAction()) && action.getAction().equals(Action.BAN)
+                && maps.size() != 1 &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             maps.remove(action.getMapOrSide());
-        } else if (Action.PICK.equals(action.getAction())) {
+            session.getActionsLogs().add(action);
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+        } else if (session.getNextActionType().equals(action.getAction())
+                && action.getAction().equals(Action.PICK)  &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
-        } else if (Action.PICK_SIDE.equals(action.getAction())) {
+            session.getActionsLogs().add(action);
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+        } else if (session.getNextActionType().equals(action.getAction()) &&
+                action.getAction().equals(Action.PICK_SIDE) &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
+            session.getActionsLogs().add(action);
         }
 
         if (actions.size() < 2) {
@@ -317,8 +334,7 @@ public class LobbyServiceImpl implements LobbyService {
         } else if (actions.size() < 8) {
             session.setNextActionType(Action.BAN);
         }
-        session.getActionsLogs().add(action);
-        session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+
 
         if (maps.size() == 1) {
             String lastMap = maps.remove(0);
@@ -336,13 +352,24 @@ public class LobbyServiceImpl implements LobbyService {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
-        if (Action.BAN.equals(action.getAction()) && maps.size() != 1) {
+        if (session.getNextActionType().equals(action.getAction()) && action.getAction().equals(Action.BAN)
+                && maps.size() != 1 &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             maps.remove(action.getMapOrSide());
-        } else if (Action.PICK.equals(action.getAction())) {
+            session.getActionsLogs().add(action);
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+        } else if (session.getNextActionType().equals(action.getAction())
+                && action.getAction().equals(Action.PICK)  &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
-        } else if (Action.PICK_SIDE.equals(action.getAction())) {
+            session.getActionsLogs().add(action);
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+        } else if (session.getNextActionType().equals(action.getAction()) &&
+                action.getAction().equals(Action.PICK_SIDE) &&
+                session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
+            session.getActionsLogs().add(action);
         }
 
         if (actions.size() < 2) {
@@ -354,8 +381,6 @@ public class LobbyServiceImpl implements LobbyService {
                 session.setNextActionType(Action.PICK_SIDE);
             }
         }
-        session.getActionsLogs().add(action);
-        session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
 
         if (maps.size() == 1) {
             String lastMap = maps.remove(0);
