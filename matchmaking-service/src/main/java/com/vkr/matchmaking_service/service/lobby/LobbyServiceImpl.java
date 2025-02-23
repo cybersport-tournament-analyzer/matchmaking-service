@@ -10,15 +10,12 @@ import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
-import com.vkr.matchmaking_service.exception.LobbyIsFullException;
-import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
-import com.vkr.matchmaking_service.exception.TeamIsFullException;
-import com.vkr.matchmaking_service.exception.WrongInputException;
+import com.vkr.matchmaking_service.exception.*;
 import com.vkr.matchmaking_service.service.server.ServerService;
-import com.vkr.matchmaking_service.utils.CustomTimerTask;
 import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -26,6 +23,7 @@ import redis.clients.jedis.Transaction;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +34,9 @@ public class LobbyServiceImpl implements LobbyService {
     private final JedisPool jedisPool;
     private final ServerService serverService;
     private static final String LOBBY_KEY_PREFIX = "lobby:";
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final SimpMessagingTemplate messagingTemplate;
+    private final Map<UUID, ScheduledFuture<?>> timers = new ConcurrentHashMap<>();
 
     @Override
     public List<Lobby> getAllLobbies() {
@@ -63,9 +64,10 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new ArrayList<>(), new ArrayList<>());
-        lobby.getTeam1().add(creator);
-        lobby.getTeam1().get(0).setCaptain(true);
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new HashMap<>(), new HashMap<>());
+
+        lobby.getTeam1().put(1, creator);
+        lobby.getTeam1().get(1).setCaptain(true);
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
@@ -75,7 +77,7 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     @Override
-    public void addPlayer(UUID lobbyId, String steamId, String team) {
+    public void addPlayer(UUID lobbyId, String steamId, int slot) {
         String key = LOBBY_KEY_PREFIX + lobbyId;
 
         try (Jedis jedis = jedisPool.getResource()) {
@@ -85,17 +87,25 @@ public class LobbyServiceImpl implements LobbyService {
             Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
             if (lobby.full()) throw new LobbyIsFullException("Lobby is full!");
 
-            List<UserDto> targetTeam = "team1".equals(team) ? lobby.getTeam1() : lobby.getTeam2();
+            Map<Integer, UserDto> targetTeam = slot <= lobby.maxPlayersPerTeam() ? lobby.getTeam1() : lobby.getTeam2();
+
+            if (targetTeam.get(slot) != null) {
+                throw new SlotIsOccupiedException("Slot is already occupied!");
+            }
+
             if (targetTeam.size() >= lobby.maxPlayersPerTeam()) {
                 throw new TeamIsFullException("Chosen team is full!");
             }
 
             UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
-            if (targetTeam.isEmpty()) {
-                targetTeam.add(currentPlayer);
-                targetTeam.get(0).setCaptain(true);
-            } else {
-                targetTeam.add(currentPlayer);
+
+            lobby.getTeam1().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
+            lobby.getTeam2().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
+
+            targetTeam.put(slot, currentPlayer);
+
+            if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
+                targetTeam.get(slot).setCaptain(true);
             }
 
             Transaction transaction = jedis.multi();
@@ -113,8 +123,8 @@ public class LobbyServiceImpl implements LobbyService {
             if (json == null) throw new LobbyNotFoundException("Lobby not found!");
 
             Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-            lobby.getTeam1().removeIf(player -> player.getSteamId().equals(steamId));
-            lobby.getTeam2().removeIf(player -> player.getSteamId().equals(steamId));
+            lobby.getTeam1().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
+            lobby.getTeam2().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
 
             if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
                 jedis.del(key);
@@ -153,8 +163,8 @@ public class LobbyServiceImpl implements LobbyService {
         Lobby lobby = getLobbyById(lobbyId);
         if (lobby == null) return false;
 
-        if (lobby.getTeam1().stream().allMatch(UserDto::isReady) &&
-                lobby.getTeam2().stream().allMatch(UserDto::isReady) &&
+        if (lobby.getTeam1().values().stream().allMatch(UserDto::isReady) &&
+                lobby.getTeam2().values().stream().allMatch(UserDto::isReady) &&
                 lobby.getTeam1().size() + lobby.getTeam2().size() == lobby.maxPlayersPerTeam() * 2) {
 
             initializePickBanSession(lobby);
@@ -182,26 +192,74 @@ public class LobbyServiceImpl implements LobbyService {
             updateSessionState(session, action);
             lobby.setPickBanSession(session);
 
-            jedis.setex(key, 6000, JsonUtils.toJson(lobby));
-            startNewTimerIfNeeded(session);
+            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+
         }
     }
 
     @Override
-    public void handleTimeout(UUID lobbyId) {
+    public void handleTimeout(UUID lobbyId) throws IOException, InterruptedException {
         Lobby lobby = getLobbyById(lobbyId.toString());
         PickBanSession session = lobby.getPickBanSession();
 
-        String randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
-        String team = session.getCurrentTeamTurn();
+        String format = session.getFormat();
+        String randomMap = "";
 
-        PickBanAction action = PickBanAction.builder().team(team)
-                .action(session.getNextActionType()).mapOrSide(randomMap).build();
+        PickBanAction action = new PickBanAction();
 
-        session.getActionsLogs().add(action);
+        if (format.equals("bo1")) {
+            switch (session.getNextActionType()) {
+                case BAN:
+                    randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
+                    action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.BAN).mapOrSide(randomMap).build();
+                    System.out.println("тут бан бо1");
+                    System.out.println(action.getAction() + " " + action.getTeam() + " " + action.getMapOrSide());
+                    break;
+                case PICK_SIDE:
+                    String randomSide = session.getSides().get((int) (Math.random() * session.getSides().size()));
+                    action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.PICK_SIDE).mapOrSide(randomSide).build();
+                    System.out.println("тут пик сайд бо1");
+                    System.out.println(action.getAction() + " " + action.getTeam() + " " + action.getMapOrSide());
+                    break;
+            }
+        }
+        else {
+            switch (session.getNextActionType()) {
+                case BAN:
+                    randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
+                    action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.BAN).mapOrSide(randomMap).build();
+                    System.out.println("тут бан бо3.5");
+                    System.out.println(action.getAction() + " " + action.getTeam() + " " + action.getMapOrSide());
+                    break;
+                case PICK:
+                    randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
+                    action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.PICK).mapOrSide(randomMap).build();
+                    System.out.println("тут пик бо3.5");
+                    System.out.println(action.getAction() + " " + action.getTeam() + " " + action.getMapOrSide());
+                    break;
+                case PICK_SIDE:
+                    String randomSide = session.getSides().get((int) (Math.random() * session.getSides().size()));
+                    action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.PICK_SIDE).mapOrSide(randomSide).build();
+                    System.out.println("тут пик сайд бо3.5");
+                    System.out.println(action.getAction() + " " + action.getTeam() + " " + action.getMapOrSide());
+                    break;
+            }
+
+        }
+
         updateSessionState(session, action);
         lobby.setPickBanSession(session);
-        saveAndNotify(lobby);
+        save(lobby);
+
+        if (session.isCompleted()) {
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
+            stopTimer(session);
+            startMatch(lobby);
+        } else {
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
+//            startNewTimerIfNeeded(session);
+            startTimer(session);
+        }
     }
 
     @Override
@@ -216,9 +274,10 @@ public class LobbyServiceImpl implements LobbyService {
         session.setCurrentTeamTurn(firstTeam);
         session.setNextActionType(Action.BAN);
 
-        startNewTimerIfNeeded(session);
+//        startNewTimerIfNeeded(session);
         lobby.setPickBanSession(session);
-        saveAndNotify(lobby);
+        save(lobby);
+        startTimer(session);
     }
 
     @Override
@@ -235,13 +294,13 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setPassword("");
 
         List<StartMatchPlayerDto> players = new ArrayList<>();
-        for (UserDto user : lobby.getTeam1()) {
+        for (UserDto user : lobby.getTeam1().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam("team1");
             playerDto.setSteam_id_64(user.getSteamId());
             players.add(playerDto);
         }
-        for (UserDto user : lobby.getTeam2()) {
+        for (UserDto user : lobby.getTeam2().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam("team2");
             playerDto.setSteam_id_64(user.getSteamId());
@@ -394,25 +453,105 @@ public class LobbyServiceImpl implements LobbyService {
         }
     }
 
-    private void startNewTimerIfNeeded(PickBanSession session) {
-        if (session.getCurrentTimer() != null) {
-            session.getCurrentTimer().cancel();
-        }
+    @Override
+    public void startNewTimerIfNeeded(PickBanSession session) {
 
-        CustomTimerTask timerTask = new CustomTimerTask(() -> handleTimeout(session.getLobbyId()));
+        UUID lobbyId = session.getLobbyId();
 
-        Timer timer = new Timer();
-        timer.schedule(timerTask, 100000);
+        ScheduledFuture<?> timerTask = scheduler.scheduleAtFixedRate(() -> {
+            long startTime = System.currentTimeMillis();
+            long remainingTime = 30000;
+            while (remainingTime > 0) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                remainingTime = Math.max(0, 30000 - elapsedTime);
 
-        session.setCurrentTimer(timerTask);
+                sendRemainingTime(lobbyId, remainingTime / 1000);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+
+            if (!session.isCompleted()) {
+                try {
+                    handleTimeout(lobbyId);
+                } catch (IOException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                Thread.currentThread().interrupt();
+            }
+        }, 0, 1, TimeUnit.SECONDS);
     }
 
+    @Override
+    public void startTimer(PickBanSession session) {
+
+        UUID lobbyId = session.getLobbyId();
+
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    handleTimeout(lobbyId);
+                } catch (IOException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+
+        ScheduledFuture<?> timerTask = scheduler.scheduleAtFixedRate(() -> {
+            long startTime = System.currentTimeMillis();
+            long remainingTime = 30000;
+            while (remainingTime > 0) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                remainingTime = Math.max(0, 30000 - elapsedTime);
+
+                sendRemainingTime(lobbyId, remainingTime / 1000);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+
+            if (!session.isCompleted()) {
+                try {
+                    handleTimeout(lobbyId);
+                } catch (IOException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                Thread.currentThread().interrupt();
+            }
+        }, 0, 1, TimeUnit.SECONDS);
+
+        timers.put(lobbyId, timerTask);
+    }
+
+    @Override
+    public void stopTimer(PickBanSession session) {
+        ScheduledFuture<?> timerTask = timers.get(session.getLobbyId());
+        if (timerTask != null) {
+            timerTask.cancel(true);
+            timers.remove(session.getLobbyId());
+        }
+    }
+
+    private void sendRemainingTime(UUID lobbyId, long remainingTime) {
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId + "/time/", remainingTime);
+    }
 
     private String getOppositeTeam(String team) {
         return "team2".equals(team) ? "team1" : "team2";
     }
 
-    private void saveAndNotify(Lobby lobby) {
+    private void save(Lobby lobby) {
         if (lobby == null || lobby.getId() == null) {
             throw new IllegalArgumentException("Лобби или его ID не может быть null ");
         }
@@ -433,14 +572,14 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     public String getTeamForCaptain(String steamId, Lobby lobby) {
-        boolean isCaptainInTeam1 = lobby.getTeam1().stream()
+        boolean isCaptainInTeam1 = lobby.getTeam1().values().stream()
                 .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam1) {
             return "team1";
         }
 
-        boolean isCaptainInTeam2 = lobby.getTeam2().stream()
+        boolean isCaptainInTeam2 = lobby.getTeam2().values().stream()
                 .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam2) {

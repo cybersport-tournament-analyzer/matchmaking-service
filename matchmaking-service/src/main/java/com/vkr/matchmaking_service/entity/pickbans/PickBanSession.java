@@ -1,10 +1,11 @@
 package com.vkr.matchmaking_service.entity.pickbans;
 
-import com.vkr.matchmaking_service.utils.CustomTimerTask;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -24,7 +25,6 @@ public class PickBanSession {
     private UUID lobbyId;
     private String currentTeamTurn;
     private Action nextActionType;
-    private CustomTimerTask currentTimer;
     private boolean completed = false;
 
 }

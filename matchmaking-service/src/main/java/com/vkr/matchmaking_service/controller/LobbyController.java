@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -33,6 +34,7 @@ public class LobbyController {
 
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final DataSourceTransactionManagerAutoConfiguration dataSourceTransactionManagerAutoConfiguration;
 
     @PostMapping("/create")
     @ResponseBody
@@ -50,8 +52,9 @@ public class LobbyController {
     public void joinLobby(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
-        String team = data.get("team");
-        lobbyService.addPlayer(lobbyId, steamId, team);
+//        String team = data.get("team");
+        int slot = Integer.parseInt(data.get("slot"));
+        lobbyService.addPlayer(lobbyId, steamId, slot);
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
     }
 
@@ -104,12 +107,17 @@ public class LobbyController {
         Lobby lobby = lobbyService.getLobbyById(lobbyId.toString());
         PickBanSession session = lobby.getPickBanSession();
 
-        if (session.isCompleted()) {
+        if (!session.isCompleted()) {
+            lobbyService.stopTimer(session);
+            lobbyService.startTimer(session);
+        } else {
             lobbyService.startMatch(lobby);
         }
 
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
+
     }
+
 
 
 }

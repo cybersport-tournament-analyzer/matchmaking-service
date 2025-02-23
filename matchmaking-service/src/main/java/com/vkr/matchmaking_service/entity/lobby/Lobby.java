@@ -8,9 +8,7 @@ import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
@@ -32,8 +30,8 @@ public class Lobby {
 
     private String format;
 
-    private List<UserDto> team1 = new ArrayList<>();
-    private List<UserDto> team2 = new ArrayList<>();
+    private Map<Integer, UserDto> team1 = new HashMap<>();
+    private Map<Integer, UserDto> team2 = new HashMap<>();
 
     public int maxPlayersPerTeam() {
         return switch (mode) {
@@ -48,8 +46,8 @@ public class Lobby {
     }
 
     public void setReady(String steamId, boolean ready) {
-        team1.stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
-        team2.stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+        team1.values().stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+        team2.values().stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
     }
 
 }
