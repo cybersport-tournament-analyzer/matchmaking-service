@@ -65,11 +65,11 @@ public class LobbyServiceImpl implements LobbyService {
             throw new WrongInputException("Wrong game mode!");
         }
 
-//        UserDto creator = userServiceClient.getUserBySteamId(steamId);
+        UserDto creator = userServiceClient.getUserBySteamId(steamId);
         Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new HashMap<>(), new HashMap<>());
 
-//        lobby.getTeam1().put(1, creator);
-//        lobby.getTeam1().get(1).setCaptain(true);
+        lobby.getTeam1().put(1, creator);
+        lobby.getTeam1().get(1).setCaptain(true);
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
