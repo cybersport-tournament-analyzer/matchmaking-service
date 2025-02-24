@@ -1,15 +1,18 @@
 package com.vkr.matchmaking_service.service.lobby;
 
 import com.vkr.matchmaking_service.client.UserServiceClient;
+import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import com.vkr.matchmaking_service.dto.match.MatchSettingsDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.dto.server.ServerConfigDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
+import com.vkr.matchmaking_service.entity.server.Server;
 import com.vkr.matchmaking_service.exception.*;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import com.vkr.matchmaking_service.utils.JsonUtils;
@@ -33,6 +36,7 @@ import java.util.concurrent.*;
 public class LobbyServiceImpl implements LobbyService {
 
     private final UserServiceClient userServiceClient;
+    private final MapsConfig mapsConfig;
     private final JedisPool jedisPool;
     private final ServerService serverService;
     private static final String LOBBY_KEY_PREFIX = "lobby:";
@@ -268,6 +272,8 @@ public class LobbyServiceImpl implements LobbyService {
         PickBanSession session = lobby.getPickBanSession();
         session.setLobbyId(lobby.getId());
         session.setFormat(lobby.getFormat());
+        List<String> mapsForMode = mapsConfig.getMapsByMode(lobby.getMode());
+        session.setMaps(mapsForMode);
 
         session.setCurrentTeamTurn(firstTeam);
         session.setNextActionType(Action.BAN);
@@ -279,8 +285,31 @@ public class LobbyServiceImpl implements LobbyService {
 
     @Override
     public void startMatch(Lobby lobby) throws IOException, InterruptedException {
+
         String serverId = serverService.getAvailableServer().getId();
-        serverService.startServer(serverId);
+
+        Server server = serverService.getServerById(serverId);
+
+        switch (lobby.getMode()) {
+            case "1x1":
+                server.getCs2_settings().setGame_mode("competitive");
+                if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
+                    server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                } else {
+                    server.getCs2_settings().setMaps_source("workshop_single_map");
+                    server.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
+                }
+                break;
+            case "2x2":
+                server.getCs2_settings().setGame_mode("wingman");
+                server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                break;
+            case"5x5":
+                server.getCs2_settings().setGame_mode("competitive");
+                server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                break;
+        }
+        serverService.updateServer(server);
 
         MatchStartingDto matchStartingDto = new MatchStartingDto();
         matchStartingDto.setGame_server_id(serverId);
@@ -308,6 +337,12 @@ public class LobbyServiceImpl implements LobbyService {
         matchStartingDto.setSettings(matchSettingsDto);
 
         serverService.startMatch(matchStartingDto);
+
+        String key = LOBBY_KEY_PREFIX + lobby.getId();
+
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.del(key);
+        }
     }
 
     private void updateSessionState(PickBanSession session, PickBanAction action) {
@@ -331,7 +366,8 @@ public class LobbyServiceImpl implements LobbyService {
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
         }
 
-        if (session.getActionsLogs().size() == 6 && session.getNextActionType().equals(Action.PICK_SIDE)
+        if (session.getActionsLogs().size() == mapsConfig.getMapsByMode(getLobbyById(String.valueOf(session.getLobbyId())).getMode()).size() - 1
+            && session.getNextActionType().equals(Action.PICK_SIDE)
         && session.getCurrentTeamTurn().equals(action.getTeam())) {
             String lastMap = session.getMaps().remove(0);
             session.getPickedMaps().add(lastMap);

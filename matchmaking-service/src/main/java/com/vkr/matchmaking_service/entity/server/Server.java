@@ -67,17 +67,17 @@ public class Server {
 
         private com.vkr.matchmaking_service.entity.server.Server.Cs2Settings cs2_settings;
 
-        private Object csgo_settings;
-        private Object deadlock_settings;
-        private Object minecraft_settings;
-        private Object palworld_settings;
-        private Object sevendaystodie_settings;
-        private Object sonsoftheforest_settings;
-        private Object soulmask_settings;
-        private Object teamfortress2_settings;
-        private Object teamspeak3_settings;
-        private Object valheim_settings;
-        private Object vrising_settings;
+        private Object csgo_settings = null;
+        private Object deadlock_settings = null;
+        private Object minecraft_settings = null;
+        private Object palworld_settings = null;
+        private Object sevendaystodie_settings = null;
+        private Object sonsoftheforest_settings = null;
+        private Object soulmask_settings = null;
+        private Object teamfortress2_settings = null;
+        private Object teamspeak3_settings = null;
+        private Object valheim_settings = null;
+        private Object vrising_settings = null;
 
 
         @Data
@@ -85,31 +85,30 @@ public class Server {
             private int game;
             private int gotv;
             private Integer gotv_secondary;
-
         }
 
-        @Data
-        public static class Cs2Settings {
-            private int slots;
-            private String steam_game_server_login_token;
-            private String rcon;
-            private String password;
-            private String maps_source;
-            private String mapgroup;
-            private String mapgroup_start_map;
-            private String workshop_collection_id;
-            private String workshop_collection_start_map_id;
-            private String workshop_single_map_id;
-            private boolean insecure;
-            private boolean enable_gotv;
-            private boolean enable_gotv_secondary;
-            private boolean disable_bots;
-            private String game_mode;
-            private boolean enable_metamod;
-            private List<String> metamod_plugins;
-            private boolean private_server;
-
-        }
+    @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class Cs2Settings {
+        private int slots = 11;
+        private String steam_game_server_login_token = null;
+        private String rcon = "tmp4rv6bd";
+        private String password = "";
+        private String maps_source = "mapgroup";
+        private String mapgroup = "";
+        private String mapgroup_start_map = "";
+        private String workshop_collection_id = "";
+        private String workshop_collection_start_map_id = "";
+        private String workshop_single_map_id = "";
+        private boolean insecure = false;
+        private boolean enable_gotv = true;
+        private boolean enable_gotv_secondary = false;
+        private boolean disable_bots = false;
+        private String game_mode = "";
+        private boolean enable_metamod = true;
+        private List<String> metamod_plugins = List.of("654a32ea452c94f085961b91");
+        private boolean private_server = false;
+    }
 
 }
 

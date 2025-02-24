@@ -4,6 +4,7 @@ package com.vkr.matchmaking_service.controller;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.dto.server.ServerConfigDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
 import com.vkr.matchmaking_service.service.server.ServerService;
@@ -83,6 +84,13 @@ public class ServerController {
     @Operation(summary = "Add player to match")
     public MatchPlayerDto addPlayerToMatch(@PathVariable String matchId, @RequestBody StartMatchPlayerDto startMatchPlayerDto) throws IOException, InterruptedException {
         return serverService.addPlayerToMatch(matchId, startMatchPlayerDto);
+    }
+
+    @PutMapping("/update")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Update server")
+    public void updateServer(@RequestBody Server server) throws IOException, InterruptedException {
+        serverService.updateServer(server);
     }
 
 }

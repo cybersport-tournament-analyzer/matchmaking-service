@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service;
 
+import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
