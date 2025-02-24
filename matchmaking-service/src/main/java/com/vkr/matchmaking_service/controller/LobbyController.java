@@ -1,20 +1,12 @@
 package com.vkr.matchmaking_service.controller;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
-import com.vkr.matchmaking_service.dto.match.MatchSettingsDto;
-import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
-import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
-import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
-import com.vkr.matchmaking_service.service.server.ServerService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -23,7 +15,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,7 +25,6 @@ public class LobbyController {
 
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final DataSourceTransactionManagerAutoConfiguration dataSourceTransactionManagerAutoConfiguration;
 
     @PostMapping("/create")
     @ResponseBody
@@ -52,7 +42,6 @@ public class LobbyController {
     public void joinLobby(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));
         String steamId = data.get("steamId");
-//        String team = data.get("team");
         int slot = Integer.parseInt(data.get("slot"));
         lobbyService.addPlayer(lobbyId, steamId, slot);
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
@@ -107,15 +96,14 @@ public class LobbyController {
         Lobby lobby = lobbyService.getLobbyById(lobbyId.toString());
         PickBanSession session = lobby.getPickBanSession();
 
-        if (!session.isCompleted()) {
+        if (session.isCompleted()) {
+            lobbyService.stopTimer(session);
+            lobbyService.startMatch(lobby);
+        } else {
             lobbyService.stopTimer(session);
             lobbyService.startTimer(session);
-        } else {
-            lobbyService.startMatch(lobby);
         }
-
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
-
     }
 
 

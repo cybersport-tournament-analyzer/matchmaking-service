@@ -18,9 +18,9 @@ public class UserDto {
 
     private String steamId;
     private String steamUsername;
-    private Long hoursPlayed;
     private Long ratingElo;
-    private Long faceitWinrate;
+    private String avatarImageLink;
+    private String steamProfileLink;
     private boolean ready = false;
     private boolean captain = false;
 

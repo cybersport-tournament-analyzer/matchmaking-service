@@ -32,8 +32,6 @@ public interface LobbyService {
 
     void startMatch(Lobby lobby) throws IOException, InterruptedException;
 
-    void startNewTimerIfNeeded(PickBanSession session);
-
     void startTimer(PickBanSession session);
 
     void stopTimer(PickBanSession session);
