@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Transaction;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
 import java.util.*;
@@ -63,11 +65,11 @@ public class LobbyServiceImpl implements LobbyService {
             throw new WrongInputException("Wrong game mode!");
         }
 
-        UserDto creator = userServiceClient.getUserBySteamId(steamId);
+//        UserDto creator = userServiceClient.getUserBySteamId(steamId);
         Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new HashMap<>(), new HashMap<>());
 
-        lobby.getTeam1().put(1, creator);
-        lobby.getTeam1().get(1).setCaptain(true);
+//        lobby.getTeam1().put(1, creator);
+//        lobby.getTeam1().get(1).setCaptain(true);
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
@@ -102,6 +104,12 @@ public class LobbyServiceImpl implements LobbyService {
             lobby.getTeam1().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
             lobby.getTeam2().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
 
+            Lobby currLobby = findCurrentLobbyForPlayer(steamId);
+
+            if(currLobby != null) {
+                removePlayer(currLobby.getId(), steamId);
+            }
+
             targetTeam.put(slot, currentPlayer);
 
             if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
@@ -126,7 +134,7 @@ public class LobbyServiceImpl implements LobbyService {
             lobby.getTeam1().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
             lobby.getTeam2().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
 
-            if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
+            if(lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
                 jedis.del(key);
             } else {
                 jedis.setex(key, 600, JsonUtils.toJson(lobby));
@@ -569,6 +577,39 @@ public class LobbyServiceImpl implements LobbyService {
 
     private String getRandomSide() {
         return new Random().nextBoolean() ? "CT" : "T";
+    }
+
+    public Lobby findCurrentLobbyForPlayer(String steamId) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            String cursor = "0";
+            ScanParams scanParams = new ScanParams().match(LOBBY_KEY_PREFIX + "*").count(10);
+
+            do {
+                ScanResult<String> scanResult = jedis.scan(cursor, scanParams);
+                cursor = scanResult.getCursor();
+
+                for (String key : scanResult.getResult()) {
+                    String lobbyJson = jedis.get(key);
+
+                    if (lobbyJson != null) {
+                        Lobby lobby = JsonUtils.fromJson(lobbyJson, Lobby.class);
+
+                        boolean playerInTeam1 = lobby.getTeam1().values().stream()
+                                .anyMatch(player -> steamId.equals(player.getSteamId()));
+
+                        boolean playerInTeam2 = lobby.getTeam2().values().stream()
+                                .anyMatch(player -> steamId.equals(player.getSteamId()));
+
+                        if (playerInTeam1 || playerInTeam2) {
+                            return lobby;
+                        }
+                    }
+                }
+            } while (!cursor.equals("0"));
+        } catch (Exception e) {
+            log.error("Ошибка при поиске лобби для игрока с steamId {}: {}", steamId, e.getMessage());
+        }
+        return null;
     }
 
     public String getTeamForCaptain(String steamId, Lobby lobby) {
