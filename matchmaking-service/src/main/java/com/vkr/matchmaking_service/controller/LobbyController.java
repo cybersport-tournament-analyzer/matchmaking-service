@@ -99,9 +99,6 @@ public class LobbyController {
         if (session.isCompleted()) {
             lobbyService.stopTimer(session);
             lobbyService.startMatch(lobby);
-        } else {
-            lobbyService.stopTimer(session);
-            lobbyService.startTimer(session);
         }
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
     }

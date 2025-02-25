@@ -233,11 +233,6 @@ public class ServerServiceImpl implements ServerService {
                 serverSettingsDto.getCs2_settings().getMaps_source().equals("mapgroup") ? "mapgroup_start_map" : "workshop_single_map_id",
                 serverSettingsDto.getCs2_settings().getMaps_source().equals("mapgroup") ? serverSettingsDto.getCs2_settings().getMapgroup_start_map() : serverSettingsDto.getCs2_settings().getWorkshop_single_map_id());
 
-        System.out.println(serverSettingsDto.getCs2_settings().getGame_mode());
-        System.out.println(serverSettingsDto.getCs2_settings().getMaps_source());
-        System.out.println(serverSettingsDto.getCs2_settings().getMapgroup_start_map());
-        System.out.println(serverSettingsDto.getCs2_settings().getWorkshop_single_map_id());
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(serversUrl + "/" + serverSettingsDto.getServer_id()))
                 .header("Authorization", "Basic " + auth)

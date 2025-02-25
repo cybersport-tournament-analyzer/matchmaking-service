@@ -256,7 +256,6 @@ public class LobbyServiceImpl implements LobbyService {
 
         if (session.isCompleted()) {
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
-            stopTimer(session);
             startMatch(lobby);
         } else {
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
@@ -314,10 +313,6 @@ public class LobbyServiceImpl implements LobbyService {
                 break;
         }
 
-        System.out.println(settings.getCs2_settings().getGame_mode());
-        System.out.println(settings.getCs2_settings().getMapgroup());
-        System.out.println(settings.getCs2_settings().getMapgroup_start_map());
-        System.out.println(settings.getCs2_settings().getWorkshop_single_map_id());
         serverService.updateServer(settings);
 
         MatchStartingDto matchStartingDto = new MatchStartingDto();
@@ -382,6 +377,8 @@ public class LobbyServiceImpl implements LobbyService {
             session.getMaps().remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            stopTimer(session);
+            startTimer(session);
         }
 
         if (session.getActionsLogs().size() == mapsConfig.getMapsByMode(getLobbyById(String.valueOf(session.getLobbyId())).getMode()).size() - 1
@@ -413,18 +410,24 @@ public class LobbyServiceImpl implements LobbyService {
             maps.remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            stopTimer(session);
+            startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction())
                 && action.getAction().equals(Action.PICK)  &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
             session.getActionsLogs().add(action);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            stopTimer(session);
+            startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction()) &&
                 action.getAction().equals(Action.PICK_SIDE) &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
             session.getActionsLogs().add(action);
+            stopTimer(session);
+            startTimer(session);
         }
 
         if (actions.size() < 2) {
@@ -468,18 +471,24 @@ public class LobbyServiceImpl implements LobbyService {
             maps.remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            stopTimer(session);
+            startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction())
                 && action.getAction().equals(Action.PICK)  &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
             session.getActionsLogs().add(action);
             session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            stopTimer(session);
+            startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction()) &&
                 action.getAction().equals(Action.PICK_SIDE) &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
             session.getMaps().remove(session.getActionsLogs().get(session.getActionsLogs().size() - 1).getMapOrSide());
             session.getActionsLogs().add(action);
+            stopTimer(session);
+            startTimer(session);
         }
 
         if (actions.size() < 2) {
