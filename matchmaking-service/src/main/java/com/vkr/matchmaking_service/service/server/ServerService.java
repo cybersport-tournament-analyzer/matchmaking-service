@@ -3,7 +3,7 @@ package com.vkr.matchmaking_service.service.server;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
-import com.vkr.matchmaking_service.dto.server.ServerConfigDto;
+import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
 import org.springframework.data.domain.Page;
@@ -33,5 +33,5 @@ public interface ServerService {
 
     MatchPlayerDto addPlayerToMatch(String matchId, StartMatchPlayerDto startMatchPlayerDto) throws IOException, InterruptedException;
 
-    void updateServer(Server server) throws IOException, InterruptedException;
+    void updateServer(ServerSettingsDto serverSettingsDto) throws IOException, InterruptedException;
 }

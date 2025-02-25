@@ -5,14 +5,13 @@ import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import com.vkr.matchmaking_service.dto.match.MatchSettingsDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
-import com.vkr.matchmaking_service.dto.server.ServerConfigDto;
+import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
-import com.vkr.matchmaking_service.entity.server.Server;
 import com.vkr.matchmaking_service.exception.*;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import com.vkr.matchmaking_service.utils.JsonUtils;
@@ -288,34 +287,53 @@ public class LobbyServiceImpl implements LobbyService {
 
         String serverId = serverService.getAvailableServer().getId();
 
-        Server server = serverService.getServerById(serverId);
+        ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
 
         switch (lobby.getMode()) {
             case "1x1":
-                server.getCs2_settings().setGame_mode("competitive");
+                settings.getCs2_settings().setGame_mode("competitive");
                 if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
-                    server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
                 } else {
-                    server.getCs2_settings().setMaps_source("workshop_single_map");
-                    server.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
+                    settings.getCs2_settings().setMaps_source("workshop_single_map");
+                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
                 }
                 break;
             case "2x2":
-                server.getCs2_settings().setGame_mode("wingman");
-                server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                settings.getCs2_settings().setGame_mode("wingman");
+                if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
+                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                } else {
+                    settings.getCs2_settings().setMaps_source("workshop_single_map");
+                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
+                }
                 break;
             case"5x5":
-                server.getCs2_settings().setGame_mode("competitive");
-                server.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                settings.getCs2_settings().setGame_mode("competitive");
+                settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
                 break;
         }
-        serverService.updateServer(server);
+
+        System.out.println(settings.getCs2_settings().getGame_mode());
+        System.out.println(settings.getCs2_settings().getMapgroup());
+        System.out.println(settings.getCs2_settings().getMapgroup_start_map());
+        System.out.println(settings.getCs2_settings().getWorkshop_single_map_id());
+        serverService.updateServer(settings);
 
         MatchStartingDto matchStartingDto = new MatchStartingDto();
         matchStartingDto.setGame_server_id(serverId);
 
         MatchSettingsDto matchSettingsDto = new MatchSettingsDto();
-        matchSettingsDto.setMap(lobby.getPickBanSession().getPickedMaps().get(0));
+
+        String map = "workshop/";
+
+        if(!lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
+            map = map + lobby.getPickBanSession().getPickedMaps().get(0);
+        }else {
+            map = map + lobby.getPickBanSession().getPickedMaps().get(0);
+        }
+
+        matchSettingsDto.setMap(map);
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 

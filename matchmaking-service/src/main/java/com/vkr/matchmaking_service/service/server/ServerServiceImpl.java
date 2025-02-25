@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
-import com.vkr.matchmaking_service.dto.server.ServerConfigDto;
+import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
 import com.vkr.matchmaking_service.exception.MatchNotFoundException;
@@ -62,7 +62,7 @@ public class ServerServiceImpl implements ServerService {
                 .build();
                 HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         List<Server> servers = objectMapper.readValue(response.body(), objectMapper.getTypeFactory().constructCollectionType(List.class, Server.class));
-        return servers.stream().filter(Server::isOn).findFirst().orElseThrow();
+        return servers.stream().filter(s -> !s.isOn()).findFirst().orElseThrow();
     }
 
     @Override
@@ -214,26 +214,8 @@ public class ServerServiceImpl implements ServerService {
     }
 
     @Override
-    public void updateServer(Server server) throws IOException, InterruptedException {
+    public void updateServer(ServerSettingsDto serverSettingsDto) throws IOException, InterruptedException {
 
-        String gameMode = server.getCs2_settings().getGame_mode();
-        String mapSource = server.getCs2_settings().getMaps_source();
-        System.out.println(gameMode);
-        System.out.println(mapSource);
-        String map = "";
-        String mapSourceDestination = "";
-
-        if(mapSource.equals("mapgroup")) {
-            map = server.getCs2_settings().getMapgroup_start_map();
-            mapSourceDestination = "mapgroup_start_map";
-        }
-        else if(mapSource.equals("workshop_single_map")) {
-            map = server.getCs2_settings().getWorkshop_single_map_id();
-            mapSourceDestination = "workshop_single_map_id";
-        }
-
-        System.out.println(map);
-        System.out.println(mapSourceDestination);
 
         String req = String.format(
                 "-----011000010111000001101001\r\n" +
@@ -246,18 +228,21 @@ public class ServerServiceImpl implements ServerService {
                         "Content-Disposition: form-data; name=\"cs2_settings.%s\"\r\n\r\n" +
                         "%s\r\n" +
                         "-----011000010111000001101001--",
-                gameMode,
-                mapSource,
-                mapSourceDestination,
-                map);
+                serverSettingsDto.getCs2_settings().getGame_mode(),
+                (serverSettingsDto.getCs2_settings().getMaps_source()),
+                serverSettingsDto.getCs2_settings().getMaps_source().equals("mapgroup") ? "mapgroup_start_map" : "workshop_single_map_id",
+                serverSettingsDto.getCs2_settings().getMaps_source().equals("mapgroup") ? serverSettingsDto.getCs2_settings().getMapgroup_start_map() : serverSettingsDto.getCs2_settings().getWorkshop_single_map_id());
+
+        System.out.println(serverSettingsDto.getCs2_settings().getGame_mode());
+        System.out.println(serverSettingsDto.getCs2_settings().getMaps_source());
+        System.out.println(serverSettingsDto.getCs2_settings().getMapgroup_start_map());
+        System.out.println(serverSettingsDto.getCs2_settings().getWorkshop_single_map_id());
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(serversUrl + "/" + server.getId()))
+                .uri(URI.create(serversUrl + "/" + serverSettingsDto.getServer_id()))
                 .header("Authorization", "Basic " + auth)
-//                .header("Content-Type", "application/json")
-//                .PUT(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(server)))
                 .header("content-type", "multipart/form-data; boundary=---011000010111000001101001")
-                .method("PUT", HttpRequest.BodyPublishers.ofString(req))
+                .PUT(HttpRequest.BodyPublishers.ofString(req))
                 .build();
 
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
