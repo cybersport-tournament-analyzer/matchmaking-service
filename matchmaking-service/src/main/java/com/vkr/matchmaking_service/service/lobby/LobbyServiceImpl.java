@@ -69,7 +69,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, new HashMap<>(), new HashMap<>());
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format,null, new HashMap<>(), new HashMap<>());
 
         Lobby currLobby = findCurrentLobbyForPlayer(steamId);
 
@@ -286,6 +286,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         String serverId = serverService.getAvailableServer().getId();
 
+        lobby.setLink("steam://rungameid/730//+"+serverService.getServerIp(serverId));
         ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
 
         switch (lobby.getMode()) {

@@ -29,6 +29,7 @@ public class Lobby {
     private PickBanSession pickBanSession;
 
     private String format;
+    private String link;
 
     private Map<Integer, UserDto> team1 = new HashMap<>();
     private Map<Integer, UserDto> team2 = new HashMap<>();
