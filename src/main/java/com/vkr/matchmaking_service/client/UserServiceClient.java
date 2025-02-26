@@ -8,5 +8,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(name = "user-service", url = "http://109.172.95.212:8080/")
 public interface UserServiceClient {
     @GetMapping("/users/steam/{steamId}")
-    UserDto getUserBySteamId(@PathVariable String steamId); //123
+    UserDto getUserBySteamId(@PathVariable String steamId);
+
 }
