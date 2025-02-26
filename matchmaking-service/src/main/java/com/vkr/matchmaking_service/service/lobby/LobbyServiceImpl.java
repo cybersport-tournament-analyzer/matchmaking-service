@@ -292,7 +292,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         switch (lobby.getMode()) {
             case "1x1":
-                settings.getCs2_settings().setGame_mode("competitive");
+                settings.getCs2_settings().setGame_mode("custom");
                 if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
                     settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
                 } else {
@@ -335,7 +335,7 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setPassword("");
 
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url("https://t65w5kp2-8081.euw.devtunnels.ms/webhooks/event");
+        webhooksDto.setEvent_url("http://109.172.95.212:8081/webhooks/event");
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
