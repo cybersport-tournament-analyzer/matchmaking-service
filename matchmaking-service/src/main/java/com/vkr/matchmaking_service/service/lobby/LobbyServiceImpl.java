@@ -5,6 +5,7 @@ import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import com.vkr.matchmaking_service.dto.match.MatchSettingsDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.dto.match.WebhooksDto;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
@@ -333,17 +334,24 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
+        WebhooksDto webhooksDto = new WebhooksDto();
+        webhooksDto.setEvent_url("https://t65w5kp2-8081.euw.devtunnels.ms/webhooks/event");
+        webhooksDto.setEnabled_events(List.of("*"));
+        matchStartingDto.setWebhooks(webhooksDto);
+
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (UserDto user : lobby.getTeam1().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam("team1");
             playerDto.setSteam_id_64(user.getSteamId());
+            playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
         }
         for (UserDto user : lobby.getTeam2().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam("team2");
             playerDto.setSteam_id_64(user.getSteamId());
+            playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
         }
 
