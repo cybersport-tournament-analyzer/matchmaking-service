@@ -12,6 +12,6 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class MatchStartingTeamDto {
-    private String name; //team_what_isss_love
-    private String flag; //RU, EN, GB...
+    private String name;
+    private String flag;
 }
