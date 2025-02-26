@@ -2,7 +2,7 @@ FROM gradle:8.2.1-jdk17 AS builder
 
 WORKDIR /app
 
-COPY matchmaking-service .
+COPY . .
 
 RUN chmod +x gradlew
 
