@@ -40,6 +40,7 @@ public class LobbyController {
         Map<String, String> response = new HashMap<>();
         response.put("lobbyId", lobby.getId().toString());
         return ResponseEntity.ok(response);
+//        в
     }
 
     @MessageMapping("/join")
