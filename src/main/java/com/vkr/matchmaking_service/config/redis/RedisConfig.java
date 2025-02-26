@@ -22,9 +22,6 @@ public class RedisConfig {
     @Value("${spring.data.redis.port}")
     private int port;
 
-    /**
-     * Настройка подключения к Redis
-     */
     @Bean
     public JedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
