@@ -9,4 +9,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface UserServiceClient {
     @GetMapping("/users/steam/{steamId}")
     UserDto getUserBySteamId(@PathVariable String steamId);
+
 }

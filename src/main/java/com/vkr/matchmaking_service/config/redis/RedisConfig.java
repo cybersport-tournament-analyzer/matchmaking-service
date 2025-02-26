@@ -22,9 +22,7 @@ public class RedisConfig {
     @Value("${spring.data.redis.port}")
     private int port;
 
-    /**
-     * Настройка подключения к Redis
-     */
+
     @Bean
     public JedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
@@ -37,7 +35,7 @@ public class RedisConfig {
     public JedisPool jedisPool() {
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setJmxNamePrefix("my-pool-2");
-        return new JedisPool(poolConfig);
+        return new JedisPool(poolConfig, host, port);
     }
 
     @Bean
