@@ -8,6 +8,7 @@ import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,12 +32,15 @@ public class LobbyController {
     @ResponseBody
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Create lobby")
-    public String createLobby(@RequestBody CreateLobbyDto data) {
+    public ResponseEntity<Map<String, String>> createLobby(@RequestBody CreateLobbyDto data) {
         String mode = data.getMode();
         String steamId = data.getSteamId();
         String format = data.getFormat();
         Lobby lobby = lobbyService.createLobby(mode, format, steamId);
-       return lobby.getId().toString();
+        Map<String, String> response = new HashMap<>();
+        response.put("lobbyId", lobby.getId().toString());
+        return ResponseEntity.ok(response);
+
     }
 
     @MessageMapping("/join")
