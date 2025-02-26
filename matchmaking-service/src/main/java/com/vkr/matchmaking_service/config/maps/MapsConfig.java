@@ -9,7 +9,6 @@ import java.util.*;
 @Setter
 @Getter
 @Component
-//@ConfigurationProperties(prefix = "maps")
 public class MapsConfig {
 
     private Map<String, List<String>> maps;
