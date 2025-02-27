@@ -41,6 +41,7 @@ public class WebhooksServiceImpl implements WebhooksService {
 
     @Override
     public void handlePLayerConnected(Server server) {
+        log.info("Player connected: ");
     }
 
     @Override
@@ -69,7 +70,7 @@ public class WebhooksServiceImpl implements WebhooksService {
 
     @Override
     public void handlePLayerDisconnected(Server server) {
-
+        log.info("Player disconnected: ");
     }
 
     @Override
