@@ -339,6 +339,8 @@ public class LobbyServiceImpl implements LobbyService {
 
         WebhooksDto webhooksDto = new WebhooksDto();
         webhooksDto.setEvent_url("http://109.172.95.212:8081/webhooks/event");
+        webhooksDto.setMatch_end_url("http://109.172.95.212:8081/webhooks/match-end");
+        webhooksDto.setRound_end_url("http://109.172.95.212:8081/webhooks/round-end");
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
