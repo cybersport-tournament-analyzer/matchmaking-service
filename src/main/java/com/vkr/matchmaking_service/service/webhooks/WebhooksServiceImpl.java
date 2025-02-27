@@ -34,9 +34,9 @@ public class WebhooksServiceImpl implements WebhooksService {
     }
 
     @Override
-    public void handleServerReady(Server server) {
-        log.info("Server ready: " + server);
-        messagingTemplate.convertAndSend("/topic/match", server);
+    public void handleServerReady(Match match) {
+        log.info("Server ready: " + match);
+        messagingTemplate.convertAndSend("/topic/match", match);
     }
 
     @Override
@@ -45,21 +45,21 @@ public class WebhooksServiceImpl implements WebhooksService {
     }
 
     @Override
-    public void handleAllPlayersConnected(Server server) {
-        log.info("All players connected: " + server);
-        messagingTemplate.convertAndSend("/topic/match", server);
+    public void handleAllPlayersConnected(Match match) {
+        log.info("All players connected: " + match);
+        messagingTemplate.convertAndSend("/topic/match", match);
     }
 
     @Override
-    public void handleBootingServer(Server server) {
-        log.info("Server is booting rn: " + server);
-        messagingTemplate.convertAndSend("/topic/match", server);
+    public void handleBootingServer(Match match) {
+        log.info("Server is booting rn: " + match);
+        messagingTemplate.convertAndSend("/topic/match", match);
     }
 
     @Override
-    public void handleLoadingMap(Server server) {
-        log.info("Map loading: " + server);
-        messagingTemplate.convertAndSend("/topic/match", server);
+    public void handleLoadingMap(Match match) {
+        log.info("Map loading: " + match);
+        messagingTemplate.convertAndSend("/topic/match", match);
     }
 
     @Override

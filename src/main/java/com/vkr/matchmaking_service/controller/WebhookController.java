@@ -48,20 +48,20 @@ public class WebhookController {
     }
 
     @PostMapping("/server-booting")
-    public ResponseEntity<Void> handleServerBooting(@RequestBody Server server) {
-        webhooksService.handleBootingServer(server);
+    public ResponseEntity<Void> handleServerBooting(@RequestBody Match match) {
+        webhooksService.handleBootingServer(match);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/players-ready")
-    public ResponseEntity<Void> handleAllPLayersReady(@RequestBody Server server) {
-        webhooksService.handleAllPlayersConnected(server);
+    public ResponseEntity<Void> handleAllPLayersReady(@RequestBody Match match) {
+        webhooksService.handleAllPlayersConnected(match);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/map-loading")
-    public ResponseEntity<Void> handleMapLoading(@RequestBody Server server) {
-        webhooksService.handleServerReady(server);
+    public ResponseEntity<Void> handleMapLoading(@RequestBody Match match) {
+        webhooksService.handleServerReady(match);
         return ResponseEntity.ok().build();
     }
 }

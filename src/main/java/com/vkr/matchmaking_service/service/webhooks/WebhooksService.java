@@ -11,15 +11,15 @@ public interface WebhooksService {
 
     void handleRoundEnd(Match match);
 
-    void handleServerReady(Server server);
+    void handleServerReady(Match match);
 
     void handlePLayerConnected(Server server);
 
-    void handleAllPlayersConnected(Server server);
+    void handleAllPlayersConnected(Match match);
 
-    void handleBootingServer(Server server);
+    void handleBootingServer(Match match);
 
-    void handleLoadingMap(Server server);
+    void handleLoadingMap(Match match);
 
     void handleMatchStarted(Match match);
 
