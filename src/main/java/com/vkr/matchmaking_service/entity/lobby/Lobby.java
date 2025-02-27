@@ -1,6 +1,7 @@
 package com.vkr.matchmaking_service.entity.lobby;
 
 import com.vkr.matchmaking_service.dto.user.UserDto;
+import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import jakarta.persistence.Id;
 import lombok.*;
@@ -16,7 +17,7 @@ import java.util.*;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-@RedisHash(value = "lobby", timeToLive = 600)
+@RedisHash(value = "lobby", timeToLive = 3600)
 @Jacksonized
 public class Lobby {
 
@@ -33,6 +34,8 @@ public class Lobby {
 
     private Map<Integer, UserDto> team1 = new HashMap<>();
     private Map<Integer, UserDto> team2 = new HashMap<>();
+
+    private List<Match> matches = new ArrayList<>();
 
     public int maxPlayersPerTeam() {
         return switch (mode) {

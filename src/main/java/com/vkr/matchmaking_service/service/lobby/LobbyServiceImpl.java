@@ -2,10 +2,7 @@ package com.vkr.matchmaking_service.service.lobby;
 
 import com.vkr.matchmaking_service.client.UserServiceClient;
 import com.vkr.matchmaking_service.config.maps.MapsConfig;
-import com.vkr.matchmaking_service.dto.match.MatchSettingsDto;
-import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
-import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
-import com.vkr.matchmaking_service.dto.match.WebhooksDto;
+import com.vkr.matchmaking_service.dto.match.*;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
@@ -70,7 +67,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format,null, new HashMap<>(), new HashMap<>());
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, null, new HashMap<>(), new HashMap<>(), new ArrayList<>());
 
         Lobby currLobby = findCurrentLobbyForPlayer(steamId);
 
@@ -82,7 +79,7 @@ public class LobbyServiceImpl implements LobbyService {
         lobby.getTeam1().get(1).setCaptain(true);
 
         try (Jedis jedis = jedisPool.getResource()) {
-            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 600, JsonUtils.toJson(lobby));
+            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 3600, JsonUtils.toJson(lobby));
         }
 
         return lobby;
@@ -127,7 +124,7 @@ public class LobbyServiceImpl implements LobbyService {
             }
 
             Transaction transaction = jedis.multi();
-            transaction.setex(key, 600, JsonUtils.toJson(lobby));
+            transaction.setex(key, 3600, JsonUtils.toJson(lobby));
             transaction.exec();
         }
     }
@@ -147,7 +144,7 @@ public class LobbyServiceImpl implements LobbyService {
             if(lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
                 jedis.del(key);
             } else {
-                jedis.setex(key, 600, JsonUtils.toJson(lobby));
+                jedis.setex(key, 3600, JsonUtils.toJson(lobby));
             }
         }
     }
@@ -172,7 +169,7 @@ public class LobbyServiceImpl implements LobbyService {
             Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
             lobby.setReady(steamId, ready);
 
-            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            jedis.setex(key, 3600, JsonUtils.toJson(lobby));
         }
     }
 
@@ -206,7 +203,7 @@ public class LobbyServiceImpl implements LobbyService {
             updateSessionState(session, action);
             lobby.setPickBanSession(session);
 
-            jedis.setex(key, 600, JsonUtils.toJson(lobby));
+            jedis.setex(key, 3600, JsonUtils.toJson(lobby));
 
         }
     }
@@ -288,7 +285,13 @@ public class LobbyServiceImpl implements LobbyService {
         String serverId = serverService.getAvailableServer().getId();
 
         lobby.setLink("steam://rungameid/730//+"+serverService.getServerIp(serverId));
+
         ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
+        MatchStartingTeamDto team1 = new MatchStartingTeamDto();
+        MatchStartingTeamDto team2 = new MatchStartingTeamDto();
+
+        team1.setName(lobby.getTeam1().entrySet().stream().findFirst().get().getValue().getSteamUsername());
+        team2.setName(lobby.getTeam2().entrySet().stream().findFirst().get().getValue().getSteamUsername());
 
         switch (lobby.getMode()) {
             case "1x1":
@@ -327,7 +330,7 @@ public class LobbyServiceImpl implements LobbyService {
         if(!lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
             map = map + lobby.getPickBanSession().getPickedMaps().get(0);
         }else {
-            map = map + lobby.getPickBanSession().getPickedMaps().get(0);
+            map = lobby.getPickBanSession().getPickedMaps().get(0);
         }
 
         matchSettingsDto.setMap(map);
@@ -338,7 +341,6 @@ public class LobbyServiceImpl implements LobbyService {
         webhooksDto.setEvent_url("http://109.172.95.212:8081/webhooks/event");
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
-        //23
 
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (UserDto user : lobby.getTeam1().values()) {
@@ -358,14 +360,10 @@ public class LobbyServiceImpl implements LobbyService {
 
         matchStartingDto.setPlayers(players);
         matchStartingDto.setSettings(matchSettingsDto);
+        matchStartingDto.setTeam1(team1);
+        matchStartingDto.setTeam2(team2);
 
         serverService.startMatch(matchStartingDto);
-
-        String key = LOBBY_KEY_PREFIX + lobby.getId();
-
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.del(key);
-        }
     }
 
     private void updateSessionState(PickBanSession session, PickBanAction action) {
