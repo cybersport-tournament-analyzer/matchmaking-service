@@ -11,7 +11,7 @@ import java.util.Arrays;
 @Configuration
 public class CorsConfig {
 
-    @Value("${cors.allowed-origins}")
+    @Value("${cors.allowed-origins.local}")
     private String allowedOrigins;
 
     @Bean
