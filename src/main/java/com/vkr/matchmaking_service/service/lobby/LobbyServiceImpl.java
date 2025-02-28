@@ -6,6 +6,7 @@ import com.vkr.matchmaking_service.dto.match.*;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
@@ -365,7 +366,9 @@ public class LobbyServiceImpl implements LobbyService {
         matchStartingDto.setTeam1(team1);
         matchStartingDto.setTeam2(team2);
 
-        serverService.startMatch(matchStartingDto);
+        Match currLobbyMatch = serverService.startMatch(matchStartingDto);
+        lobby.getMatches().add(currLobbyMatch);
+        save(lobby);
     }
 
     private void updateSessionState(PickBanSession session, PickBanAction action) {
