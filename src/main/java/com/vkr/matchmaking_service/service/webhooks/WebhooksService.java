@@ -5,28 +5,28 @@ import com.vkr.matchmaking_service.entity.server.Server;
 
 public interface WebhooksService {
 
-    void handleEvent(Match match);
+    void handleEvent(Match match, String lobbyId);
 
-    void handleMatchEnd(Match match);
+    void handleMatchEnd(Match match, String lobbyId);
 
-    void handleRoundEnd(Match match);
+    void handleRoundEnd(Match match, String lobbyId);
 
-    void handleServerReady(Match match);
+    void handleServerReady(Match match, String lobbyId);
 
-    void handlePLayerConnected(Server server);
+    void handlePLayerConnected(Server server, String lobbyId);
 
-    void handleAllPlayersConnected(Match match);
+    void handleAllPlayersConnected(Match match, String lobbyId);
 
-    void handleBootingServer(Match match);
+    void handleBootingServer(Match match, String lobbyId);
 
-    void handleLoadingMap(Match match);
+    void handleLoadingMap(Match match, String lobbyId);
 
-    void handleMatchStarted(Match match);
+    void handleMatchStarted(Match match, String lobbyId);
 
-    void handlePLayerDisconnected(Server server);
+    void handlePLayerDisconnected(Server server, String lobbyId);
 
-    void handleMatchCancelled(Match match);
+    void handleMatchCancelled(Match match, String lobbyId);
 
-
+    Match getMatchById(String lobbyId);
 
 }

@@ -49,6 +49,13 @@ public class ExceptionHandlerController {
         return buildErrorResponse(e, request);
     }
 
+    @ExceptionHandler(MatchNotFoundException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMatchNotFoundException(MatchNotFoundException e, HttpServletRequest request) {
+        log.error("Match not found: {}", e.getMessage());
+        return buildErrorResponse(e, request);
+    }
+
     private ErrorResponse buildErrorResponse(Exception e, HttpServletRequest request) {
         return ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())

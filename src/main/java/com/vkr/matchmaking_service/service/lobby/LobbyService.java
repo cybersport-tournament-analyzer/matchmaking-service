@@ -36,4 +36,5 @@ public interface LobbyService {
 
     void stopTimer(PickBanSession session);
 
+    void save(Lobby lobby);
 }
