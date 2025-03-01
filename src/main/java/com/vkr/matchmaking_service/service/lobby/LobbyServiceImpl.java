@@ -338,10 +338,12 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
+        String urlLocal = "https://t65w5kp2-8081.euw.devtunnels.ms/";
+        String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url("http://109.172.95.212:8081/webhooks/event");
-        webhooksDto.setMatch_end_url("http://109.172.95.212:8081/webhooks/match-end");
-        webhooksDto.setRound_end_url("http://109.172.95.212:8081/webhooks/round-end");
+        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -581,7 +583,8 @@ public class LobbyServiceImpl implements LobbyService {
         return "team2".equals(team) ? "team1" : "team2";
     }
 
-    private void save(Lobby lobby) {
+    @Override
+    public void save(Lobby lobby) {
         if (lobby == null || lobby.getId() == null) {
             throw new IllegalArgumentException("Лобби или его ID не может быть null ");
         }
