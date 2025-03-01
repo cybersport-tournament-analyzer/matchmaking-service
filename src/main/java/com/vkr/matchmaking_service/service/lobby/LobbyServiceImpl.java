@@ -68,16 +68,19 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, null, new HashMap<>(), new HashMap<>(), new ArrayList<>());
+        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(),
+                format, null, new HashMap<>(), new HashMap<>(),
+                0, 0, "", "", 0, new ArrayList<>());
 
         Lobby currLobby = findCurrentLobbyForPlayer(steamId);
 
-        if(currLobby != null) {
+        if (currLobby != null) {
             removePlayer(currLobby.getId(), steamId);
         }
 
         lobby.getTeam1().put(1, creator);
         lobby.getTeam1().get(1).setCaptain(true);
+        lobby.setTeam1Name("team_" + creator.getSteamUsername());
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 3600, JsonUtils.toJson(lobby));
@@ -114,7 +117,7 @@ public class LobbyServiceImpl implements LobbyService {
 
             Lobby currLobby = findCurrentLobbyForPlayer(steamId);
 
-            if(currLobby != null) {
+            if (currLobby != null) {
                 removePlayer(currLobby.getId(), steamId);
             }
 
@@ -122,6 +125,12 @@ public class LobbyServiceImpl implements LobbyService {
 
             if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
                 targetTeam.get(slot).setCaptain(true);
+                if (slot == 1){
+                    lobby.setTeam1Name("team_" + currentPlayer.getSteamUsername());
+                }
+                else{
+                    lobby.setTeam2Name("team_" + currentPlayer.getSteamUsername());
+                }
             }
 
             Transaction transaction = jedis.multi();
@@ -142,7 +151,7 @@ public class LobbyServiceImpl implements LobbyService {
             lobby.getTeam1().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
             lobby.getTeam2().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
 
-            if(lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
+            if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
                 jedis.del(key);
             } else {
                 jedis.setex(key, 3600, JsonUtils.toJson(lobby));
@@ -201,7 +210,7 @@ public class LobbyServiceImpl implements LobbyService {
             PickBanAction action = PickBanAction.builder().team(getTeamForCaptain(steamId, lobby))
                     .action(actionType).mapOrSide(map != null ? map : side).build();
 
-            updateSessionState(session, action);
+            updateSessionState(session, action, lobby);
             lobby.setPickBanSession(session);
 
             jedis.setex(key, 3600, JsonUtils.toJson(lobby));
@@ -230,8 +239,7 @@ public class LobbyServiceImpl implements LobbyService {
                     action = PickBanAction.builder().team(session.getCurrentTeamTurn()).action(Action.PICK_SIDE).mapOrSide(randomSide).build();
                     break;
             }
-        }
-        else {
+        } else {
             switch (session.getNextActionType()) {
                 case BAN:
                     randomMap = session.getMaps().get((int) (Math.random() * session.getMaps().size()));
@@ -249,7 +257,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         }
 
-        updateSessionState(session, action);
+        updateSessionState(session, action, lobby);
         lobby.setPickBanSession(session);
         save(lobby);
 
@@ -264,7 +272,7 @@ public class LobbyServiceImpl implements LobbyService {
 
     @Override
     public void initializePickBanSession(Lobby lobby) {
-        String firstTeam = (new Random().nextInt(2) == 0) ? "team1" : "team2";
+        String firstTeam = (new Random().nextInt(2) == 0) ? lobby.getTeam1Name() : lobby.getTeam2Name();
 
         PickBanSession session = lobby.getPickBanSession();
         session.setLobbyId(lobby.getId());
@@ -283,43 +291,46 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void startMatch(Lobby lobby) throws IOException, InterruptedException {
 
-        String serverId = serverService.getAvailableServer().getId();
+        String serverId;
+        if (lobby.getCurrentMapNumber() == 0) {
+            serverId = serverService.getAvailableServer().getId();
+        } else {
+            serverId = lobby.getMatches().get(0).getGame_server_id();
+        }
 
-        lobby.setLink("steam://rungameid/730//+"+serverService.getServerIp(serverId));
+        lobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(serverId));
 
         ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
         MatchStartingTeamDto team1 = new MatchStartingTeamDto();
         MatchStartingTeamDto team2 = new MatchStartingTeamDto();
 
-        team1.setName(lobby.getTeam1().entrySet().stream().findFirst().get().getValue().getSteamUsername());
-        team2.setName(lobby.getTeam2().entrySet().stream().findFirst().get().getValue().getSteamUsername());
-
         switch (lobby.getMode()) {
             case "1x1":
                 settings.getCs2_settings().setGame_mode("custom");
-                if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
-                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
+                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
                 } else {
                     settings.getCs2_settings().setMaps_source("workshop_single_map");
-                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
+                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
                 }
                 break;
             case "2x2":
                 settings.getCs2_settings().setGame_mode("wingman");
-                if(lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
-                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
+                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
                 } else {
                     settings.getCs2_settings().setMaps_source("workshop_single_map");
-                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
+                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
                 }
                 break;
-            case"5x5":
+            case "5x5":
                 settings.getCs2_settings().setGame_mode("competitive");
-                settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
+                settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
                 break;
         }
 
-        serverService.updateServer(settings);
+        if (lobby.getCurrentMapNumber() == 0)
+            serverService.updateServer(settings);
 
         MatchStartingDto matchStartingDto = new MatchStartingDto();
         matchStartingDto.setGame_server_id(serverId);
@@ -328,10 +339,10 @@ public class LobbyServiceImpl implements LobbyService {
 
         String map = "workshop/";
 
-        if(!lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
-            map = map + lobby.getPickBanSession().getPickedMaps().get(0);
-        }else {
-            map = lobby.getPickBanSession().getPickedMaps().get(0);
+        if (!lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
+            map = map + lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber());
+        } else {
+            map = lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber());
         }
 
         matchSettingsDto.setMap(map);
@@ -341,23 +352,53 @@ public class LobbyServiceImpl implements LobbyService {
         String urlLocal = "https://t65w5kp2-8081.euw.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlLocal + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlLocal + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
+        String team1Side = "";
+        String team2Side = "";
+
+        SideSelection sideSelection = lobby.getPickBanSession().getSideSelections().get(lobby.getCurrentMapNumber());
+        String chosenTeam = sideSelection.getTeam();
+        if (chosenTeam.equals("team1")) {
+            if (sideSelection.getSide().equals("CT")) {
+                team1Side = "team1";
+                team2Side = "team2";
+                team1.setName(lobby.getTeam1Name());
+                team2.setName(lobby.getTeam2Name());
+            } else {
+                team1Side = "team2";
+                team2Side = "team1";
+                team1.setName(lobby.getTeam2Name());
+                team2.setName(lobby.getTeam1Name());
+            }
+        } else {
+            if (sideSelection.getSide().equals("T")) {
+                team1Side = "team1";
+                team2Side = "team2";
+                team1.setName(lobby.getTeam1Name());
+                team2.setName(lobby.getTeam2Name());
+            } else {
+                team1Side = "team2";
+                team2Side = "team1";
+                team1.setName(lobby.getTeam2Name());
+                team2.setName(lobby.getTeam1Name());
+            }
+        }
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (UserDto user : lobby.getTeam1().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
-            playerDto.setTeam("team1");
+            playerDto.setTeam(team1Side);
             playerDto.setSteam_id_64(user.getSteamId());
             playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
         }
         for (UserDto user : lobby.getTeam2().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
-            playerDto.setTeam("team2");
+            playerDto.setTeam(team2Side);
             playerDto.setSteam_id_64(user.getSteamId());
             playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
@@ -373,32 +414,32 @@ public class LobbyServiceImpl implements LobbyService {
         save(lobby);
     }
 
-    private void updateSessionState(PickBanSession session, PickBanAction action) {
+    private void updateSessionState(PickBanSession session, PickBanAction action, Lobby lobby) {
         switch (session.getFormat()) {
             case "bo1":
-                updateBo1State(session, action);
+                updateBo1State(session, action, lobby);
                 break;
             case "bo3":
-                updateBo3State(session, action);
+                updateBo3State(session, action, lobby);
                 break;
             case "bo5":
-                updateBo5State(session, action);
+                updateBo5State(session, action, lobby);
                 break;
         }
     }
 
-    private void updateBo1State(PickBanSession session, PickBanAction action) {
+    private void updateBo1State(PickBanSession session, PickBanAction action, Lobby lobby) {
         if (Action.BAN.equals(action.getAction()) && session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getMaps().remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
             stopTimer(session);
             startTimer(session);
         }
 
         if (session.getActionsLogs().size() == mapsConfig.getMapsByMode(getLobbyById(String.valueOf(session.getLobbyId())).getMode()).size() - 1
-            && session.getNextActionType().equals(Action.PICK_SIDE)
-        && session.getCurrentTeamTurn().equals(action.getTeam())) {
+                && session.getNextActionType().equals(Action.PICK_SIDE)
+                && session.getCurrentTeamTurn().equals(action.getTeam())) {
             String lastMap = session.getMaps().remove(0);
             session.getPickedMaps().add(lastMap);
             session.getSideSelections().add(new SideSelection(action.getMapOrSide(), action.getTeam()));
@@ -410,12 +451,12 @@ public class LobbyServiceImpl implements LobbyService {
 
         if (session.getMaps().size() == 1) {
             session.setNextActionType(Action.PICK_SIDE);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
         }
 
     }
 
-    private void updateBo3State(PickBanSession session, PickBanAction action) {
+    private void updateBo3State(PickBanSession session, PickBanAction action, Lobby lobby) {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
@@ -424,15 +465,15 @@ public class LobbyServiceImpl implements LobbyService {
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             maps.remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
             stopTimer(session);
             startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction())
-                && action.getAction().equals(Action.PICK)  &&
+                && action.getAction().equals(Action.PICK) &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
             session.getActionsLogs().add(action);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
             stopTimer(session);
             startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction()) &&
@@ -476,7 +517,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
     }
 
-    private void updateBo5State(PickBanSession session, PickBanAction action) {
+    private void updateBo5State(PickBanSession session, PickBanAction action, Lobby lobby) {
         List<String> maps = session.getMaps();
         List<PickBanAction> actions = session.getActionsLogs();
 
@@ -485,15 +526,15 @@ public class LobbyServiceImpl implements LobbyService {
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             maps.remove(action.getMapOrSide());
             session.getActionsLogs().add(action);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
             stopTimer(session);
             startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction())
-                && action.getAction().equals(Action.PICK)  &&
+                && action.getAction().equals(Action.PICK) &&
                 session.getCurrentTeamTurn().equals(action.getTeam())) {
             session.getPickedMaps().add(action.getMapOrSide());
             session.getActionsLogs().add(action);
-            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam()));
+            session.setCurrentTeamTurn(getOppositeTeam(action.getTeam(), lobby));
             stopTimer(session);
             startTimer(session);
         } else if (session.getNextActionType().equals(action.getAction()) &&
@@ -579,8 +620,8 @@ public class LobbyServiceImpl implements LobbyService {
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId + "/time/", remainingTime);
     }
 
-    private String getOppositeTeam(String team) {
-        return "team2".equals(team) ? "team1" : "team2";
+    private String getOppositeTeam(String team, Lobby lobby) {
+        return lobby.getTeam2Name().equals(team) ? lobby.getTeam1Name() : lobby.getTeam2Name();
     }
 
     @Override
@@ -642,14 +683,14 @@ public class LobbyServiceImpl implements LobbyService {
                 .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam1) {
-            return "team1";
+            return lobby.getTeam1Name();
         }
 
         boolean isCaptainInTeam2 = lobby.getTeam2().values().stream()
                 .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam2) {
-            return "team2";
+            return lobby.getTeam2Name();
         }
 
         throw new IllegalStateException("Игрок с steamId " + steamId + " не является капитаном ни в одной из команд");

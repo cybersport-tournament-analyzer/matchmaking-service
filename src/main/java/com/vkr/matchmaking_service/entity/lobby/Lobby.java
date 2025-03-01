@@ -35,6 +35,14 @@ public class Lobby {
     private Map<Integer, UserDto> team1 = new HashMap<>();
     private Map<Integer, UserDto> team2 = new HashMap<>();
 
+    private int team1Score;
+    private int team2Score;
+
+    private String team1Name;
+    private String team2Name;
+
+    private int currentMapNumber;
+
     private List<Match> matches = new ArrayList<>();
 
     public int maxPlayersPerTeam() {
