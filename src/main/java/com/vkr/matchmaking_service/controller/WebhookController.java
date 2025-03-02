@@ -83,6 +83,8 @@ public class WebhookController {
         createMatchDto.setMode(currentLobby.getMode());
         createMatchDto.setTeam1Score(currentLobby.getTeam1Score());
         createMatchDto.setTeam2Score(currentLobby.getTeam2Score());
+        createMatchDto.setTeam1Name(currentLobby.getTeam1Name());
+        createMatchDto.setTeam2Name(currentLobby.getTeam2Name());
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, createMatchDto);
     }
 }

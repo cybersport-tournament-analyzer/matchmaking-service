@@ -18,4 +18,6 @@ public class CreateMatchDto {
     private Match match;
     private int team1Score = 0;
     private int team2Score = 0;
+    private String team1Name;
+    private String team2Name;
 }

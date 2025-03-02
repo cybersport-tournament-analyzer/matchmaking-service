@@ -80,7 +80,6 @@ public class LobbyServiceImpl implements LobbyService {
 
         lobby.getTeam1().put(1, creator);
         lobby.getTeam1().get(1).setCaptain(true);
-        lobby.setTeam1Name("team_" + creator.getSteamUsername());
 
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 3600, JsonUtils.toJson(lobby));
@@ -125,12 +124,6 @@ public class LobbyServiceImpl implements LobbyService {
 
             if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
                 targetTeam.get(slot).setCaptain(true);
-                if (slot == 1){
-                    lobby.setTeam1Name("team_" + currentPlayer.getSteamUsername());
-                }
-                else{
-                    lobby.setTeam2Name("team_" + currentPlayer.getSteamUsername());
-                }
             }
 
             Transaction transaction = jedis.multi();
@@ -148,6 +141,7 @@ public class LobbyServiceImpl implements LobbyService {
             if (json == null) throw new LobbyNotFoundException("Lobby not found!");
 
             Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
+
             lobby.getTeam1().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
             lobby.getTeam2().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
 
@@ -191,6 +185,12 @@ public class LobbyServiceImpl implements LobbyService {
         if (lobby.getTeam1().values().stream().allMatch(UserDto::isReady) &&
                 lobby.getTeam2().values().stream().allMatch(UserDto::isReady) &&
                 lobby.getTeam1().size() + lobby.getTeam2().size() == lobby.maxPlayersPerTeam() * 2) {
+
+            String captainFirstTeamName = lobby.getTeam1().get(1).getSteamUsername();
+            lobby.setTeam1Name("team_" + captainFirstTeamName);
+            String captainSecondTeamName = lobby.getTeam2().get(lobby.maxPlayersPerTeam() + 1).getSteamUsername();
+            lobby.setTeam2Name("team_" + captainSecondTeamName);
+            save(lobby);
 
             return true;
         }
@@ -277,8 +277,8 @@ public class LobbyServiceImpl implements LobbyService {
         PickBanSession session = lobby.getPickBanSession();
         session.setLobbyId(lobby.getId());
         session.setFormat(lobby.getFormat());
-        List<String> mapsForMode = mapsConfig.getMapsByMode(lobby.getMode());
-        session.setMaps(mapsForMode);
+        Map<String, String> mapsForMode = mapsConfig.getMapsByMode(lobby.getMode());
+        session.setMaps(mapsForMode.keySet().stream().toList());
 
         session.setCurrentTeamTurn(firstTeam);
         session.setNextActionType(Action.BAN);
@@ -308,29 +308,39 @@ public class LobbyServiceImpl implements LobbyService {
             case "1x1":
                 settings.getCs2_settings().setGame_mode("custom");
                 if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
-                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
+                    settings.getCs2_settings().
+                            setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
+                                    get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 } else {
                     settings.getCs2_settings().setMaps_source("workshop_single_map");
-                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
+                    settings.getCs2_settings().setWorkshop_single_map_id(mapsConfig.getMapsByMode(lobby.getMode()).
+                            get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 }
                 break;
             case "2x2":
                 settings.getCs2_settings().setGame_mode("wingman");
                 if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
-                    settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
+                    settings.getCs2_settings().
+                            setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
+                                    get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 } else {
                     settings.getCs2_settings().setMaps_source("workshop_single_map");
-                    settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
+                    settings.getCs2_settings().setWorkshop_single_map_id(mapsConfig.getMapsByMode(lobby.getMode()).
+                            get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 }
                 break;
             case "5x5":
                 settings.getCs2_settings().setGame_mode("competitive");
-                settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
+                settings.getCs2_settings().
+                        setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
+                                get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 break;
         }
 
-        if (lobby.getCurrentMapNumber() == 0)
+        if (lobby.getCurrentMapNumber() == 0){
             serverService.updateServer(settings);
+        }
+
 
         MatchStartingDto matchStartingDto = new MatchStartingDto();
         matchStartingDto.setGame_server_id(serverId);
@@ -340,9 +350,11 @@ public class LobbyServiceImpl implements LobbyService {
         String map = "workshop/";
 
         if (!lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
-            map = map + lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber());
+            map = map + mapsConfig.getMapsByMode(lobby.getMode()).
+                    get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
         } else {
-            map = lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber());
+            map = mapsConfig.getMapsByMode(lobby.getMode()).
+                    get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()));
         }
 
         matchSettingsDto.setMap(map);
@@ -352,9 +364,9 @@ public class LobbyServiceImpl implements LobbyService {
         String urlLocal = "https://t65w5kp2-8081.euw.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlLocal + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlLocal + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -363,7 +375,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         SideSelection sideSelection = lobby.getPickBanSession().getSideSelections().get(lobby.getCurrentMapNumber());
         String chosenTeam = sideSelection.getTeam();
-        if (chosenTeam.equals("team1")) {
+        if (chosenTeam.equals(lobby.getTeam1Name())) {
             if (sideSelection.getSide().equals("CT")) {
                 team1Side = "team1";
                 team2Side = "team2";

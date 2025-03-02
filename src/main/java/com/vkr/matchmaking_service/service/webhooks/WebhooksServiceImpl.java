@@ -43,9 +43,6 @@ public class WebhooksServiceImpl implements WebhooksService {
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
 
-        System.out.println(match);
-        System.out.println(currentLobby);
-
         if (match.getTeam1().getStats().getScore() > match.getTeam2().getStats().getScore()) {
             if (match.getTeam1().getName().equals(currentLobby.getTeam1Name())) {
                 currentLobby.setTeam1Score(currentLobby.getTeam1Score() + 1);
@@ -80,6 +77,8 @@ public class WebhooksServiceImpl implements WebhooksService {
         createMatchDto.setMode(currentLobby.getMode());
         createMatchDto.setTeam1Score(currentLobby.getTeam1Score());
         createMatchDto.setTeam2Score(currentLobby.getTeam2Score());
+        createMatchDto.setTeam1Name(currentLobby.getTeam1Name());
+        createMatchDto.setTeam2Name(currentLobby.getTeam2Name());
         return createMatchDto;
     }
 
