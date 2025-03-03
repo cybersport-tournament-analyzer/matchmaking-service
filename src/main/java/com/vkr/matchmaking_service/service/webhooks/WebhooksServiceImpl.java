@@ -56,14 +56,23 @@ public class WebhooksServiceImpl implements WebhooksService {
                 currentLobby.setTeam1Score(currentLobby.getTeam1Score() + 1);
             }
         }
-        if (currentLobby.getFormat().equals("bo1")) {
-            serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
-        } else if (currentLobby.getFormat().equals("bo3")) {
-            currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-            if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2)
-                serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
-            else {
-                lobbyService.startMatch(currentLobby);
+        switch (currentLobby.getFormat()) {
+            case "bo1" -> serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+            case "bo3" -> {
+                currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
+                if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2)
+                    serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                else {
+                    lobbyService.startMatch(currentLobby);
+                }
+            }
+            case "bo5" -> {
+                currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
+                if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3)
+                    serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                else {
+                    lobbyService.startMatch(currentLobby);
+                }
             }
         }
         lobbyService.save(currentLobby);
