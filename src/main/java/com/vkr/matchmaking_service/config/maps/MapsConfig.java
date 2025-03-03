@@ -16,9 +16,9 @@ public class MapsConfig {
 
         Map<String, String> mode1x1 = new HashMap<>();
         mode1x1.put("AIM_Fake", "3073259920");
-        mode1x1.put("AIM_Garage", "3095343440");
+        mode1x1.put("AIM_Redline", "3131775712");
         mode1x1.put("AIM_Fist", "3101654056");
-        mode1x1.put("AWP_Minecraft", "3109027085");
+        mode1x1.put("AIM_Nuke_hall", "3125119625");
         mode1x1.put("AIM_Map", "3084291314");
         mode1x1.put("AIM_Vertigo", "3309764985");
         mode1x1.put("AIM_Case", "3090032979");
