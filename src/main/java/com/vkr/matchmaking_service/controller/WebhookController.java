@@ -74,8 +74,7 @@ public class WebhookController {
     }
 
     @MessageMapping("/getMatch")
-    public void sendLobby(@Payload Map<String, String> data) {
-        String lobbyId = data.get("lobbyId");
+    public void sendLobby(@Payload String lobbyId) {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         CreateMatchDto createMatchDto = new CreateMatchDto();
         createMatchDto.setMatch(webhooksService.getMatchById(lobbyId));
