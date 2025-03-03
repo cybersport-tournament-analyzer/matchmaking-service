@@ -99,15 +99,9 @@ public class LobbyController {
         lobbyService.processPickBanAction(lobbyId, steamId, actionType, map, side);
 
         Lobby lobby = lobbyService.getLobbyById(lobbyId.toString());
-        PickBanSession session = lobby.getPickBanSession();
 
-        if (session.isCompleted()) {
-            lobbyService.stopTimer(session);
-            lobbyService.startMatch(lobby);
-        }
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
     }
-
 
 
 }

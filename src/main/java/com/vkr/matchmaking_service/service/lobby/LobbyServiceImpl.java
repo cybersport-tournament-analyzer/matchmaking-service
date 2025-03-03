@@ -215,6 +215,14 @@ public class LobbyServiceImpl implements LobbyService {
 
             jedis.setex(key, 3600, JsonUtils.toJson(lobby));
 
+            if (session.isCompleted()) {
+                messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
+                stopTimer(session);
+                startMatch(lobby);
+            }
+
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 

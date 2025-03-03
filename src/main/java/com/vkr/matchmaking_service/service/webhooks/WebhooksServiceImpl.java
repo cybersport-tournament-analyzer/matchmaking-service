@@ -49,7 +49,7 @@ public class WebhooksServiceImpl implements WebhooksService {
             } else {
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             }
-        } else {
+        } else if(match.getTeam1().getStats().getScore() < match.getTeam2().getStats().getScore()){
             if (match.getTeam2().getName().equals(currentLobby.getTeam2Name())) {
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             } else {

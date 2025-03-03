@@ -26,6 +26,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -54,15 +55,27 @@ public class ServerServiceImpl implements ServerService {
 
     @Override
     public Server getAvailableServer() throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(serversUrl))
-                .header("accept", "application/json")
-                .header("Authorization", "Basic " + auth)
-                .method("GET", HttpRequest.BodyPublishers.noBody())
-                .build();
-                HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-        List<Server> servers = objectMapper.readValue(response.body(), objectMapper.getTypeFactory().constructCollectionType(List.class, Server.class));
-        return servers.stream().filter(s -> !s.isOn()).findFirst().orElseThrow();
+        while (true) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(serversUrl))
+                    .header("accept", "application/json")
+                    .header("Authorization", "Basic " + auth)
+                    .method("GET", HttpRequest.BodyPublishers.noBody())
+                    .build();
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            List<Server> servers = objectMapper.readValue(response.body(), objectMapper.getTypeFactory().constructCollectionType(List.class, Server.class));
+
+            Optional<Server> availableServer = servers.stream()
+                    .filter(s -> !s.isOn())
+                    .findFirst();
+
+            if (availableServer.isPresent()) {
+                return availableServer.get();
+            } else {
+                // Ждем 10 секунд перед повторной попыткой
+                Thread.sleep(10000);
+            }
+        }
     }
 
     @Override
