@@ -26,7 +26,7 @@ public class WebhookController {
     private final LobbyService lobbyService;
 
     @PostMapping("/event/{lobbyId}")
-    public ResponseEntity<Void> handleEvent(@RequestBody Match match, @PathVariable String lobbyId) {
+    public ResponseEntity<Void> handleEvent(@RequestBody Match match, @PathVariable String lobbyId) throws IOException, InterruptedException {
         webhooksService.handleEvent(match, lobbyId);
         return ResponseEntity.ok().build();
     }
@@ -38,38 +38,8 @@ public class WebhookController {
     }
 
     @PostMapping("/round-end/{lobbyId}")
-    public ResponseEntity<Void> handleRoundEnd(@RequestBody Match match, @PathVariable String lobbyId) {
+    public ResponseEntity<Void> handleRoundEnd(@RequestBody Match match, @PathVariable String lobbyId) throws IOException, InterruptedException {
         webhooksService.handleRoundEnd(match, lobbyId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/match-start/{lobbyId}")
-    public ResponseEntity<Void> handleMatchStart(@RequestBody Match match, @PathVariable String lobbyId) {
-        webhooksService.handleMatchStarted(match, lobbyId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/match-cancel/{lobbyId}")
-    public ResponseEntity<Void> handleMatchCancel(@RequestBody Match match, @PathVariable String lobbyId) {
-        webhooksService.handleMatchCancelled(match, lobbyId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/server-booting/{lobbyId}")
-    public ResponseEntity<Void> handleServerBooting(@RequestBody Match match, @PathVariable String lobbyId) {
-        webhooksService.handleBootingServer(match, lobbyId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/players-ready/{lobbyId}")
-    public ResponseEntity<Void> handleAllPLayersReady(@RequestBody Match match, @PathVariable String lobbyId) {
-        webhooksService.handleAllPlayersConnected(match, lobbyId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/map-loading/{lobbyId}")
-    public ResponseEntity<Void> handleMapLoading(@RequestBody Match match, @PathVariable String lobbyId) {
-        webhooksService.handleServerReady(match, lobbyId);
         return ResponseEntity.ok().build();
     }
 

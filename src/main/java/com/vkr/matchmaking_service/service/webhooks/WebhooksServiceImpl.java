@@ -23,7 +23,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final LobbyService lobbyService;
     private final ServerService serverService;
 
-    private void updateMatch(Match match, String lobbyId) {
+    private void updateMatch(Match match, String lobbyId) throws IOException, InterruptedException {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
@@ -31,6 +31,10 @@ public class WebhooksServiceImpl implements WebhooksService {
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
+        if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")){
+            currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
+        }
         lobbyService.save(currentLobby);
     }
 
@@ -92,7 +96,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     }
 
     @Override
-    public void handleEvent(Match match, String lobbyId) {
+    public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("handleEvent: " + match);
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
@@ -106,63 +110,12 @@ public class WebhooksServiceImpl implements WebhooksService {
     }
 
     @Override
-    public void handleRoundEnd(Match match, String lobbyId) {
+    public void handleRoundEnd(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("round end: " + match);
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
     }
 
-    @Override
-    public void handleServerReady(Match match, String lobbyId) {
-        log.info("Server ready: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handlePLayerConnected(Server server, String lobbyId) {
-        log.info("Player connected: ");
-    }
-
-    @Override
-    public void handleAllPlayersConnected(Match match, String lobbyId) {
-        log.info("All players connected: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handleBootingServer(Match match, String lobbyId) {
-        log.info("Server is booting rn: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handleLoadingMap(Match match, String lobbyId) {
-        log.info("Map loading: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handleMatchStarted(Match match, String lobbyId) {
-        log.info("match started: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handlePLayerDisconnected(Server server, String lobbyId) {
-        log.info("Player disconnected: ");
-    }
-
-    @Override
-    public void handleMatchCancelled(Match match, String lobbyId) {
-        log.info("match cancelled: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
 
     @Override
     public Match getMatchById(String lobbyId) {

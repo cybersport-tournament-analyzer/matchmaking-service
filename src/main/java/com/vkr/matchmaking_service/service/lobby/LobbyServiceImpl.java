@@ -306,8 +306,6 @@ public class LobbyServiceImpl implements LobbyService {
             serverId = lobby.getMatches().get(0).getGame_server_id();
         }
 
-        lobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(serverId));
-
         ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
         MatchStartingTeamDto team1 = new MatchStartingTeamDto();
         MatchStartingTeamDto team2 = new MatchStartingTeamDto();
