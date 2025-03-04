@@ -61,26 +61,29 @@ public class WebhooksServiceImpl implements WebhooksService {
         }
         switch (currentLobby.getFormat()) {
             case "bo1" -> {
-                serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                String serverId = getMatchById(lobbyId).getGame_server_id();
+                serverService.stopServer(serverId);
                 if (currentLobby.getMode().equals("1x1"))
-                    serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+                    serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
             }
             case "bo3" -> {
+                String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
-                    serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                    serverService.stopServer(serverId);
                     if (currentLobby.getMode().equals("1x1"))
-                        serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+                        serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
             }
             case "bo5" -> {
+                String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
-                    serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                    serverService.stopServer(serverId);
                     if (currentLobby.getMode().equals("1x1"))
-                        serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+                        serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
