@@ -25,6 +25,7 @@ import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -313,6 +314,7 @@ public class LobbyServiceImpl implements LobbyService {
         switch (lobby.getMode()) {
             case "1x1":
                 settings.getCs2_settings().setGame_mode("custom");
+                serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
                 if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
                     settings.getCs2_settings().
                             setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).

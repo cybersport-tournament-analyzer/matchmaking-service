@@ -24,6 +24,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -124,6 +126,43 @@ public class ServerServiceImpl implements ServerService {
 
         log.info("CS2 server with id {} is stopped", serverId);
 
+    }
+
+    @Override
+    public void uploadFileToServer(String serverId, String filePath, Path localFilePath) throws IOException, InterruptedException {
+
+        Path localPath = Path.of(localFilePath.toUri());
+
+        String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+
+        byte[] fileBytes = Files.readAllBytes(localPath);
+        String fileName = localPath.getFileName().toString();
+
+        String formData = "--" + boundary + "\r\n" +
+                "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+                "Content-Type: application/octet-stream\r\n\r\n";
+
+        byte[] multipartBody = concatBytes(formData.getBytes(), fileBytes, ("\r\n--" + boundary + "--\r\n").getBytes());
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serversUrl + "/" + serverId + "/files/" + filePath))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .header("Authorization", "Basic " + auth)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
+                .build();
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        log.info("File {} was uploaded to server", fileName);
+    }
+
+    @Override
+    public void deleteFileFromServer(String serverId, String filePath) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serversUrl + "/" + serverId + "/files/" + filePath))
+                .header("Authorization", "Basic " + auth)
+                .method("DELETE", HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        log.info("File with path {} was deleted from server", filePath);
     }
 
     @Override
@@ -261,6 +300,19 @@ public class ServerServiceImpl implements ServerService {
             System.err.println("Failed to update game mode. Status code: " + response.statusCode());
             System.err.println("Response: " + response.body());
         }
+    }
+
+    private static byte[] concatBytes(byte[]... arrays) {
+        int length = 0;
+        for (byte[] arr : arrays) length += arr.length;
+        byte[] result = new byte[length];
+
+        int pos = 0;
+        for (byte[] arr : arrays) {
+            System.arraycopy(arr, 0, result, pos, arr.length);
+            pos += arr.length;
+        }
+        return result;
     }
 
 }

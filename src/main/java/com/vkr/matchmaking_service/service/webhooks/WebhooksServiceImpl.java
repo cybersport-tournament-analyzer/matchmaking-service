@@ -3,7 +3,6 @@ package com.vkr.matchmaking_service.service.webhooks;
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
-import com.vkr.matchmaking_service.entity.server.Server;
 import com.vkr.matchmaking_service.exception.MatchNotFoundException;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
@@ -31,7 +30,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
-        if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")){
+        if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
             currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
         }
@@ -53,7 +52,7 @@ public class WebhooksServiceImpl implements WebhooksService {
             } else {
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             }
-        } else if(match.getTeam1().getStats().getScore() < match.getTeam2().getStats().getScore()){
+        } else if (match.getTeam1().getStats().getScore() < match.getTeam2().getStats().getScore()) {
             if (match.getTeam2().getName().equals(currentLobby.getTeam2Name())) {
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             } else {
@@ -61,20 +60,28 @@ public class WebhooksServiceImpl implements WebhooksService {
             }
         }
         switch (currentLobby.getFormat()) {
-            case "bo1" -> serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+            case "bo1" -> {
+                serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
+                if (currentLobby.getMode().equals("1x1"))
+                    serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+            }
             case "bo3" -> {
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2)
+                if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
-                else {
+                    if (currentLobby.getMode().equals("1x1"))
+                        serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+                } else {
                     lobbyService.startMatch(currentLobby);
                 }
             }
             case "bo5" -> {
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3)
+                if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(getMatchById(lobbyId).getGame_server_id());
-                else {
+                    if (currentLobby.getMode().equals("1x1"))
+                        serverService.deleteFileFromServer(getMatchById(lobbyId).getGame_server_id(), "cfg/live_server.cfg");
+                } else {
                     lobbyService.startMatch(currentLobby);
                 }
             }
