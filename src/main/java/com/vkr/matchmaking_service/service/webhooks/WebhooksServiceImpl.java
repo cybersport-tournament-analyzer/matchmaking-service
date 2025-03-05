@@ -25,8 +25,13 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final LobbyService lobbyService;
     private final ServerService serverService;
 
+    private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
+        if (lobby.getMode().equals("1x1"))
+            serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
+    }
+
     private void checkMissingPlayers(Match match){
-        if(match.getCancel_reason().startsWith("MISSING_PLAYERS")){
+        if(match.getCancel_reason() != null && match.getCancel_reason().startsWith("MISSING_PLAYERS")){
             Set<String> missingPlayers = new HashSet<>(Arrays.asList(match.getCancel_reason()
                     .split(":")[1].split(",")));
 
@@ -95,16 +100,14 @@ public class WebhooksServiceImpl implements WebhooksService {
             case "bo1" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
-                if (currentLobby.getMode().equals("1x1"))
-                    serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
+                deleteFileFromServer(currentLobby, serverId);
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
-                    if (currentLobby.getMode().equals("1x1"))
-                        serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
+                    deleteFileFromServer(currentLobby, serverId);
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
@@ -114,8 +117,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
-                    if (currentLobby.getMode().equals("1x1"))
-                        serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
+                    deleteFileFromServer(currentLobby, serverId);
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }

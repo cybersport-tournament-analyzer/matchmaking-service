@@ -294,6 +294,9 @@ public class LobbyServiceImpl implements LobbyService {
         String serverId;
         if (lobby.getCurrentMapNumber() == 0) {
             serverId = serverService.getAvailableServer().getId();
+            if(lobby.getMode().equals("1x1")){
+                serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
+            }
         } else {
             serverId = lobby.getMatches().get(0).getGame_server_id();
         }
@@ -305,7 +308,6 @@ public class LobbyServiceImpl implements LobbyService {
         switch (lobby.getMode()) {
             case "1x1":
                 settings.getCs2_settings().setGame_mode("custom");
-                serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
                 if (mapsConfig.getMapsByMode(lobby.getMode())
                         .get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())).startsWith("de_")) {
                     settings.getCs2_settings().
