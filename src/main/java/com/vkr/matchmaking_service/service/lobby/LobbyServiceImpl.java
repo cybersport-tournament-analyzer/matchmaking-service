@@ -315,7 +315,8 @@ public class LobbyServiceImpl implements LobbyService {
             case "1x1":
                 settings.getCs2_settings().setGame_mode("custom");
                 serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
-                if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
+                if (mapsConfig.getMapsByMode(lobby.getMode())
+                        .get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())).startsWith("de_")) {
                     settings.getCs2_settings().
                             setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
                                     get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
@@ -327,7 +328,8 @@ public class LobbyServiceImpl implements LobbyService {
                 break;
             case "2x2":
                 settings.getCs2_settings().setGame_mode("wingman");
-                if (lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber()).startsWith("de_")) {
+                if (mapsConfig.getMapsByMode(lobby.getMode())
+                        .get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())).startsWith("de_")) {
                     settings.getCs2_settings().
                             setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
                                     get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));

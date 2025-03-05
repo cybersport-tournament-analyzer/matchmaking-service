@@ -12,6 +12,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -21,6 +24,33 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
+
+    private void checkMissingPlayers(Match match){
+        if(match.getCancel_reason().startsWith("MISSING_PLAYERS")){
+            Set<String> missingPlayers = new HashSet<>(Arrays.asList(match.getCancel_reason()
+                    .split(":")[1].split(",")));
+
+            boolean allMissingFromTeam1 = match.getPlayers().stream()
+                    .filter(p -> "team1".equals(p.getTeam()))
+                    .allMatch(p -> missingPlayers.contains(p.getSteam_id_64()));
+
+            boolean allMissingFromTeam2 = match.getPlayers().stream()
+                    .filter(p -> "team2".equals(p.getTeam()))
+                    .allMatch(p -> missingPlayers.contains(p.getSteam_id_64()));
+
+            if (allMissingFromTeam1 && allMissingFromTeam2) {
+                match.getTeam1().getStats().setScore(0);
+                match.getTeam2().getStats().setScore(0);
+            } else if (allMissingFromTeam1) {
+                match.getTeam1().getStats().setScore(0);
+                match.getTeam2().getStats().setScore(13);
+            } else if (allMissingFromTeam2) {
+                match.getTeam2().getStats().setScore(0);
+                match.getTeam1().getStats().setScore(13);
+            }
+
+        }
+    }
 
     private void updateMatch(Match match, String lobbyId) throws IOException, InterruptedException {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
@@ -45,6 +75,8 @@ public class WebhooksServiceImpl implements WebhooksService {
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
+
+        checkMissingPlayers(match);
 
         if (match.getTeam1().getStats().getScore() > match.getTeam2().getStats().getScore()) {
             if (match.getTeam1().getName().equals(currentLobby.getTeam1Name())) {
