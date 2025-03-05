@@ -24,7 +24,7 @@ public interface LobbyService {
 
     boolean checkAndStartPickBan(String lobbyId);
 
-    void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side);
+    void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) throws IOException, InterruptedException;
 
     void handleTimeout(UUID lobbyId) throws IOException, InterruptedException;
 

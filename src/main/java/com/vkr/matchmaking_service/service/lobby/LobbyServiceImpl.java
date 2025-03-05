@@ -198,32 +198,23 @@ public class LobbyServiceImpl implements LobbyService {
 
         return false;
     }
-
     @Override
-    public void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) {
-        String key = LOBBY_KEY_PREFIX + lobbyId;
+    public void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) throws IOException, InterruptedException {
+        Lobby lobby = getLobbyById(String.valueOf(lobbyId));
+        PickBanSession session = lobby.getPickBanSession();
 
-        try (Jedis jedis = jedisPool.getResource()) {
-            String json = jedis.get(key);
-            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-            PickBanSession session = lobby.getPickBanSession();
+        PickBanAction action = PickBanAction.builder().team(getTeamForCaptain(steamId, lobby))
+                .action(actionType).mapOrSide(map != null ? map : side).build();
 
-            PickBanAction action = PickBanAction.builder().team(getTeamForCaptain(steamId, lobby))
-                    .action(actionType).mapOrSide(map != null ? map : side).build();
+        updateSessionState(session, action, lobby);
+        lobby.setPickBanSession(session);
 
-            updateSessionState(session, action, lobby);
-            lobby.setPickBanSession(session);
+        save(lobby);
 
-            jedis.setex(key, 3600, JsonUtils.toJson(lobby));
-
-            if (session.isCompleted()) {
-                messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
-                stopTimer(session);
-                startMatch(lobby);
-            }
-
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
+        if (session.isCompleted()) {
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
+            stopTimer(session);
+            startMatch(lobby);
         }
     }
 
