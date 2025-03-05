@@ -14,6 +14,8 @@ WORKDIR /app
 
 COPY --from=builder /app/build/libs/matchmaking-service-0.0.1-SNAPSHOT.jar app.jar
 
+COPY live_server.cfg /app/live_server.cfg
+
 EXPOSE 8081
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
