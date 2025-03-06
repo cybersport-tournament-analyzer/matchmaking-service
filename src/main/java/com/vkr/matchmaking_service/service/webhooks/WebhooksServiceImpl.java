@@ -1,10 +1,11 @@
 package com.vkr.matchmaking_service.service.webhooks;
 
-import com.vkr.matchmaking_service.config.kafka.KafkaProducerConfig;
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.exception.MatchNotFoundException;
+import com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent;
+import com.vkr.matchmaking_service.kafka.producer.match.MatchProducer;
 import com.vkr.matchmaking_service.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
-    private final KafkaProducerConfig kafkaProducerConfig;
+    private final MatchProducer matchProducer;
 
     private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
         if (lobby.getMode().equals("1x1"))
@@ -63,13 +64,13 @@ public class WebhooksServiceImpl implements WebhooksService {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
-                        () -> new MatchNotFoundException("Match not found in lobby: " + lobbyId)
+                        () -> new MatchNotFoundException("Match not found in lobbyStart: " + lobbyId)
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
             currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
-            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
+            messagingTemplate.convertAndSend("/topic/lobbyStart/" + lobbyId, currentLobby);
         }
         lobbyService.save(currentLobby);
     }
@@ -78,7 +79,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
-                        () -> new MatchNotFoundException("Match not found in lobby: " + lobbyId)
+                        () -> new MatchNotFoundException("Match not found in lobbyStart: " + lobbyId)
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
@@ -103,11 +104,12 @@ public class WebhooksServiceImpl implements WebhooksService {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
-                kafkaProducerConfig.sendMatchFinished(match);
+                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
+                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
@@ -118,6 +120,7 @@ public class WebhooksServiceImpl implements WebhooksService {
             case "bo5" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
+                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);

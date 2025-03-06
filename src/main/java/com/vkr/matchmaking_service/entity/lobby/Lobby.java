@@ -17,12 +17,14 @@ import java.util.*;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-@RedisHash(value = "lobby", timeToLive = 3600)
+@RedisHash(value = "lobbyStart", timeToLive = 3600)
 @Jacksonized
 public class Lobby {
 
     @Id
     private UUID id;
+
+    private UUID tournamentMatchId;
 
     @Indexed
     private String mode;

@@ -12,7 +12,7 @@ public interface LobbyService {
 
     List<Lobby> getAllLobbies();
 
-    Lobby createLobby(String mode, String format, String steamId);
+    Lobby createLobby(String mode, String format, String steamId, UUID tournamentMatchId);
 
     void addPlayer(UUID lobbyId, String steamId, int slot);
 

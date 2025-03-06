@@ -62,14 +62,14 @@ public class LobbyServiceImpl implements LobbyService {
 
 
     @Override
-    public Lobby createLobby(String mode, String format, String steamId) {
+    public Lobby createLobby(String mode, String format, String steamId, UUID tournamentMatchId) {
 
         if (!List.of("1x1", "2x2", "5x5").contains(mode)) {
             throw new WrongInputException("Wrong game mode!");
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(),
+        Lobby lobby = new Lobby(UUID.randomUUID(), tournamentMatchId, mode, new PickBanSession(),
                 format, null, new HashMap<>(), new HashMap<>(),
                 0, 0, "", "", 0, new ArrayList<>());
 
@@ -364,12 +364,12 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
-        String urlLocal = "https://t65w5kp2-8081.euw.devtunnels.ms/";
+        String urlLocal = "https://665g6kt2-8081.inc1.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlLocal + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlLocal + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 

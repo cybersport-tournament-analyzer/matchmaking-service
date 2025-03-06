@@ -15,4 +15,5 @@ public class CreateLobbyDto {
     private String mode;
     private String steamId;
     private String format;
+    private String tournamentMatchId;
 }

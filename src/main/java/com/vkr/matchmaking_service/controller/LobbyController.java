@@ -31,12 +31,13 @@ public class LobbyController {
     @PostMapping("/create")
     @ResponseBody
     @ResponseStatus(HttpStatus.OK)
-    @Operation(summary = "Create lobby")
+    @Operation(summary = "Create lobbyStart")
     public ResponseEntity<Map<String, String>> createLobby(@RequestBody CreateLobbyDto data) {
         String mode = data.getMode();
         String steamId = data.getSteamId();
         String format = data.getFormat();
-        Lobby lobby = lobbyService.createLobby(mode, format, steamId);
+        String tournamentMatchId = data.getTournamentMatchId();
+        Lobby lobby = lobbyService.createLobby(mode, format, steamId, UUID.fromString(tournamentMatchId));
         Map<String, String> response = new HashMap<>();
         response.put("lobbyId", lobby.getId().toString());
         return ResponseEntity.ok(response);
