@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.service.webhooks;
 
+import com.vkr.matchmaking_service.config.kafka.KafkaProducerConfig;
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
 import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
@@ -24,6 +25,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
+    private final KafkaProducerConfig kafkaProducerConfig;
 
     private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
         if (lobby.getMode().equals("1x1"))
@@ -101,6 +103,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
+                kafkaProducerConfig.sendMatchFinished(match);
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
