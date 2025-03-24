@@ -68,7 +68,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(), format, null, new HashMap<>(), new HashMap<>(), new ArrayList<>());
+        Lobby lobby = new Lobby(UUID.randomUUID(),UUID.randomUUID(), mode, new PickBanSession(), format, null, new HashMap<>(), new HashMap<>(), 0, 0, "", "", 0, new ArrayList<>());
 
         Lobby currLobby = findCurrentLobbyForPlayer(steamId);
 

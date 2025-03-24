@@ -3,9 +3,9 @@ package com.vkr.matchmaking_service.entity.lobby;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
-import jakarta.persistence.Id;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 
@@ -24,6 +24,8 @@ public class Lobby {
     @Id
     private UUID id;
 
+    private UUID tournamentMatchId;
+
     @Indexed
     private String mode;
 
@@ -34,6 +36,14 @@ public class Lobby {
 
     private Map<Integer, UserDto> team1 = new HashMap<>();
     private Map<Integer, UserDto> team2 = new HashMap<>();
+
+    private int team1Score;
+    private int team2Score;
+
+    private String team1Name;
+    private String team2Name;
+
+    private int currentMapNumber;
 
     private List<Match> matches = new ArrayList<>();
 
