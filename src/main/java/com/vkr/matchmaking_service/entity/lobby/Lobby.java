@@ -3,9 +3,9 @@ package com.vkr.matchmaking_service.entity.lobby;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
-import jakarta.persistence.Id;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 

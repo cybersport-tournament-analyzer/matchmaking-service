@@ -40,13 +40,13 @@ public class ServerServiceImpl implements ServerService {
     @Value("${dathost.password}")
     private String password;
 
-    private String auth;
+    public String auth;
 
     @Value("${dathost.matches-url}")
-    private String matchesUrl;
+    public String matchesUrl;
 
     @Value("${dathost.servers-url}")
-    private String serversUrl;
+    public String serversUrl;
 
     @PostConstruct
     public void init() {
@@ -74,7 +74,6 @@ public class ServerServiceImpl implements ServerService {
             if (availableServer.isPresent()) {
                 return availableServer.get();
             } else {
-                // Ждем 10 секунд перед повторной попыткой
                 Thread.sleep(10000);
             }
         }
