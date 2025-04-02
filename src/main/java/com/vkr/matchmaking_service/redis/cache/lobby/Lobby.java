@@ -1,4 +1,4 @@
-package com.vkr.matchmaking_service.entity.lobby;
+package com.vkr.matchmaking_service.redis.cache.lobby;
 
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
@@ -24,9 +24,8 @@ public class Lobby {
     @Id
     private UUID id;
 
-    private UUID tournamentMatchId;
+//    private UUID tournamentMatchId;
 
-    @Indexed
     private String mode;
 
     private PickBanSession pickBanSession;

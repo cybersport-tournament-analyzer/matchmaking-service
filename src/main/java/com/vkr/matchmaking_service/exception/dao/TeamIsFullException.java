@@ -1,4 +1,4 @@
-package com.vkr.matchmaking_service.exception;
+package com.vkr.matchmaking_service.exception.dao;
 
 public class TeamIsFullException extends RuntimeException{
     public TeamIsFullException(String message) {

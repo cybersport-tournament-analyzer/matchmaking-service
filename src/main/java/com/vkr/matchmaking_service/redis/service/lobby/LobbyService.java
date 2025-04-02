@@ -1,6 +1,6 @@
-package com.vkr.matchmaking_service.service.lobby;
+package com.vkr.matchmaking_service.redis.service.lobby;
 
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 
@@ -20,11 +20,13 @@ public interface LobbyService {
 
     Lobby getLobbyById(String lobbyId);
 
+    Lobby findCurrentLobbyForPlayer(String steamId);
+
     void setReady(UUID lobbyId, String steamId, boolean ready);
 
     boolean checkAndStartPickBan(String lobbyId);
 
-    void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side);
+    void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) throws IOException, InterruptedException;
 
     void handleTimeout(UUID lobbyId) throws IOException, InterruptedException;
 
@@ -36,4 +38,5 @@ public interface LobbyService {
 
     void stopTimer(PickBanSession session);
 
+    void save(Lobby lobby);
 }

@@ -1,10 +1,10 @@
 package com.vkr.matchmaking_service.controller;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,6 +36,7 @@ public class LobbyController {
         String mode = data.getMode();
         String steamId = data.getSteamId();
         String format = data.getFormat();
+//        String tournamentMatchId = data.getTournamentMatchId();
         Lobby lobby = lobbyService.createLobby(mode, format, steamId);
         Map<String, String> response = new HashMap<>();
         response.put("lobbyId", lobby.getId().toString());

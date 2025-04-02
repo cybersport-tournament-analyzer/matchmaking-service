@@ -1,6 +1,6 @@
 package com.vkr.matchmaking_service.controller.handler;
 
-import com.vkr.matchmaking_service.exception.*;
+import com.vkr.matchmaking_service.exception.dao.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
