@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
 public interface ServerService {
 
@@ -20,6 +21,10 @@ public interface ServerService {
     void startServer(String serverId) throws IOException, InterruptedException;
 
     void stopServer(String serverId) throws IOException, InterruptedException;
+
+    void uploadFileToServer(String serverId, String filePath, Path localFilePath) throws IOException, InterruptedException;
+
+    void deleteFileFromServer(String serverId, String filePath) throws IOException, InterruptedException;
 
     Server getServerById(String serverId) throws IOException, InterruptedException;
 

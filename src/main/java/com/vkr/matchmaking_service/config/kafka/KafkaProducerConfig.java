@@ -30,6 +30,7 @@ public class KafkaProducerConfig {
         props.put(JsonSerializer.TYPE_MAPPINGS,
                 """
                 match-end:com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent,
+                match-start:com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent,
                 lobby-start:com.vkr.matchmaking_service.kafka.event.lobbyStart.LobbyStartEvent
                 """);
 

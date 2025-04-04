@@ -36,8 +36,8 @@ public class LobbyController {
         String mode = data.getMode();
         String steamId = data.getSteamId();
         String format = data.getFormat();
-//        String tournamentMatchId = data.getTournamentMatchId();
-        Lobby lobby = lobbyService.createLobby(mode, format, steamId);
+        String tournamentMatchId = data.getTournamentMatchId();
+        Lobby lobby = lobbyService.createLobby(mode, format, steamId, UUID.fromString(tournamentMatchId));
         Map<String, String> response = new HashMap<>();
         response.put("lobbyId", lobby.getId().toString());
         return ResponseEntity.ok(response);
@@ -62,6 +62,7 @@ public class LobbyController {
         lobbyService.setReady(lobbyId, steamId, ready);
 
         if (lobbyService.checkAndStartPickBan(String.valueOf(lobbyId))) {
+            System.out.println("чек готовность");
             lobbyService.initializePickBanSession(lobbyService.getLobbyById(lobbyId.toString()));
         }
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));

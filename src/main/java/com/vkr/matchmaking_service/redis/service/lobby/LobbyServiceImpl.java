@@ -28,6 +28,7 @@ import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -59,15 +60,15 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     @Override
-    public Lobby createLobby(String mode, String format, String steamId) {
+    public Lobby createLobby(String mode, String format, String steamId, UUID tournamentMatchId) {
 
-        if (!List.of("1x1", "2x2", "5x5").contains(mode)) {
+        if (!List.of("1vs1", "2vs2", "5vs5").contains(mode)) {
             throw new WrongInputException("Wrong game mode!");
         }
 
         UserDto creator = userServiceClient.getUserBySteamId(steamId);
 
-        Lobby lobby = new Lobby(UUID.randomUUID(), mode, new PickBanSession(),
+        Lobby lobby = new Lobby(UUID.randomUUID(),  tournamentMatchId, mode, new PickBanSession(),
                 format, null, new HashMap<>(), new HashMap<>(),
                 0, 0, "", "", 0, new ArrayList<>());
 
@@ -240,7 +241,15 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void startMatch(Lobby lobby) throws IOException, InterruptedException {
 
-        String serverId = serverService.getAvailableServer().getId();
+        String serverId;
+        if (lobby.getCurrentMapNumber() == 0) {
+            serverId = serverService.getAvailableServer().getId();
+            if(lobby.getMode().equals("1vs1")){
+                serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
+            }
+        } else {
+            serverId = lobby.getMatches().get(0).getGame_server_id();
+        }
 
         lobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(serverId));
 
@@ -252,7 +261,7 @@ public class LobbyServiceImpl implements LobbyService {
         team2.setName("team " + lobby.getTeam2().values().stream().findFirst().get().getSteamUsername());
 
         switch (lobby.getMode()) {
-            case "1x1":
+            case "1vs1":
                 settings.getCs2_settings().setGame_mode("custom");
                 if (lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
                     settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
@@ -261,7 +270,7 @@ public class LobbyServiceImpl implements LobbyService {
                     settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
                 }
                 break;
-            case "2x2":
+            case "2vs2":
                 settings.getCs2_settings().setGame_mode("wingman");
                 if (lobby.getPickBanSession().getPickedMaps().get(0).startsWith("de_")) {
                     settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
@@ -270,7 +279,7 @@ public class LobbyServiceImpl implements LobbyService {
                     settings.getCs2_settings().setWorkshop_single_map_id(lobby.getPickBanSession().getPickedMaps().get(0));
                 }
                 break;
-            case "5x5":
+            case "5vs5":
                 settings.getCs2_settings().setGame_mode("competitive");
                 settings.getCs2_settings().setMapgroup_start_map(lobby.getPickBanSession().getPickedMaps().get(0));
                 break;
@@ -295,36 +304,67 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
+        String urlLocal = "https://665g6kt2-8081.inc1.devtunnels.ms/";
+        String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setMatch_end_url("https://665g6kt2-8081.inc1.devtunnels.ms/webhooks/match-end");
-        webhooksDto.setRound_end_url("https://665g6kt2-8081.inc1.devtunnels.ms/webhooks/round-end");
-        webhooksDto.setEvent_url("https://665g6kt2-8081.inc1.devtunnels.ms/webhooks/event");
+        webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlLocal + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlLocal + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
+        String team1Side = "";
+        String team2Side = "";
+
+        SideSelection sideSelection = lobby.getPickBanSession().getSideSelections().get(lobby.getCurrentMapNumber());
+        String chosenTeam = sideSelection.getTeam();
+        if (chosenTeam.equals(lobby.getTeam1Name())) {
+            if (sideSelection.getSide().equals("CT")) {
+                team1Side = "team1";
+                team2Side = "team2";
+                team1.setName(lobby.getTeam1Name());
+                team2.setName(lobby.getTeam2Name());
+            } else {
+                team1Side = "team2";
+                team2Side = "team1";
+                team1.setName(lobby.getTeam2Name());
+                team2.setName(lobby.getTeam1Name());
+            }
+        } else {
+            if (sideSelection.getSide().equals("T")) {
+                team1Side = "team1";
+                team2Side = "team2";
+                team1.setName(lobby.getTeam1Name());
+                team2.setName(lobby.getTeam2Name());
+            } else {
+                team1Side = "team2";
+                team2Side = "team1";
+                team1.setName(lobby.getTeam2Name());
+                team2.setName(lobby.getTeam1Name());
+            }
+        }
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (UserDto user : lobby.getTeam1().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
-            playerDto.setTeam("team1");
+            playerDto.setTeam(team1Side);
             playerDto.setSteam_id_64(user.getSteamId());
             playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
         }
         for (UserDto user : lobby.getTeam2().values()) {
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
-            playerDto.setTeam("team2");
+            playerDto.setTeam(team2Side);
             playerDto.setSteam_id_64(user.getSteamId());
             playerDto.setNickname_override(user.getSteamUsername());
             players.add(playerDto);
         }
 
-        matchStartingDto.setTeam1(team1);
-        matchStartingDto.setTeam2(team2);
         matchStartingDto.setPlayers(players);
         matchStartingDto.setSettings(matchSettingsDto);
+        matchStartingDto.setTeam1(team1);
+        matchStartingDto.setTeam2(team2);
 
         Match currLobbyMatch = serverService.startMatch(matchStartingDto);
-
         lobby.getMatches().add(currLobbyMatch);
         save(lobby);
     }
@@ -551,7 +591,6 @@ public class LobbyServiceImpl implements LobbyService {
         return new Random().nextBoolean() ? "CT" : "T";
     }
 
-    @Override
     public Lobby findCurrentLobbyForPlayer(String steamId) {
         return getAllLobbies().stream()
                 .filter(lobby ->

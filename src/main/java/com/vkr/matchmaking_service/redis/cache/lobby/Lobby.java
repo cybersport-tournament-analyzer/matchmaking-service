@@ -24,7 +24,7 @@ public class Lobby {
     @Id
     private UUID id;
 
-//    private UUID tournamentMatchId;
+    private UUID tournamentMatchId;
 
     private String mode;
 
@@ -48,8 +48,8 @@ public class Lobby {
 
     public int maxPlayersPerTeam() {
         return switch (mode) {
-            case "1x1" -> 1;
-            case "2x2" -> 2;
+            case "1vs1" -> 1;
+            case "2vs2" -> 2;
             default -> 5;
         };
     }

@@ -25,7 +25,7 @@ public class LobbyStartConsumer implements KafkaConsumer<LobbyStartEvent> {
         try {
             System.out.println("зашел 2");
             log.info("Consumed lobby start event: {}", event);
-            lobbyService.createLobby(event.getMode(), event.getFormat(), "76561198258376387");
+            lobbyService.createLobby(event.getMode(), event.getFormat(), "76561198258376387", event.getTournamentMatchId());
         } catch (Exception e) {
             throw new KafkaConsumerException(e);
 

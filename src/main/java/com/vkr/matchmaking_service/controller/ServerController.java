@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
 
 @RestController
@@ -56,6 +57,20 @@ public class ServerController {
     @Operation(summary = "Stop server")
     public void stopServer(@PathVariable String serverId) throws IOException, InterruptedException {
         serverService.stopServer(serverId);
+    }
+
+    @PostMapping("/upload/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Upload file to server")
+    public void uploadFileToServer(@PathVariable String serverId, @RequestParam String filePath, @RequestParam Path localFilePath) throws IOException, InterruptedException {
+        serverService.uploadFileToServer(serverId, filePath, localFilePath);
+    }
+
+    @DeleteMapping("/delete/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Delete file from server")
+    public void deleteFileFromServer(@PathVariable String serverId, @RequestParam String filePath) throws IOException, InterruptedException {
+        serverService.deleteFileFromServer(serverId, filePath);
     }
 
     @PostMapping("/start-match")
