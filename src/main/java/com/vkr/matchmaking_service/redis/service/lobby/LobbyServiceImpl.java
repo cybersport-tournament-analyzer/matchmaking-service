@@ -304,7 +304,7 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
-        String urlLocal = "https://665g6kt2-8081.inc1.devtunnels.ms/";
+        String urlLocal = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
         webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());

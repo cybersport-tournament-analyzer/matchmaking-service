@@ -33,7 +33,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final MatchStartProducer matchStartProducer;
 
     private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
-        if (lobby.getMode().equals("1x1"))
+        if (lobby.getMode().equals("1vs1"))
             serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
     }
 
@@ -68,13 +68,13 @@ public class WebhooksServiceImpl implements WebhooksService {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
-                        () -> new MatchNotFoundException("Match not found in lobbyStart: " + lobbyId)
+                        () -> new MatchNotFoundException("Match not found in lobby: " + lobbyId)
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
             currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
-            messagingTemplate.convertAndSend("/topic/lobbyStart/" + lobbyId, currentLobby);
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
         }
         lobbyService.save(currentLobby);
     }
