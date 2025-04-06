@@ -11,6 +11,8 @@ import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.integration.redis.util.RedisLockRegistry;
+import org.springframework.integration.support.locks.ExpirableLockRegistry;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
@@ -30,12 +32,8 @@ public class RedisConfig {
     }
 
     @Bean
-    @Primary
-    @RefreshScope
-    public JedisPool jedisPool() {
-        JedisPoolConfig poolConfig = new JedisPoolConfig();
-//        poolConfig.setJmxNamePrefix("my-pool-2");
-        return new JedisPool(poolConfig, host, port);
+    public ExpirableLockRegistry redisLockRegistry(RedisConnectionFactory connectionFactory) {
+        return new RedisLockRegistry(connectionFactory, "my-locks", 60000);
     }
 
     @Bean

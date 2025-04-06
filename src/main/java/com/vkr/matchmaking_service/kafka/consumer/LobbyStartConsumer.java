@@ -1,9 +1,9 @@
 package com.vkr.matchmaking_service.kafka.consumer;
 
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
 import com.vkr.matchmaking_service.exception.KafkaConsumerException;
+import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
 import com.vkr.matchmaking_service.kafka.event.lobbyStart.LobbyStartEvent;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,15 +21,19 @@ public class LobbyStartConsumer implements KafkaConsumer<LobbyStartEvent> {
 
     @Override
     @Transactional
-    @KafkaListener(topics = "${spring.data.kafka.topics.topic-settings.lobby-start.name}", groupId = "${spring.data.kafka.group-id}")
+    @KafkaListener(topics = "${spring.data.kafka.topics.topic-settings.lobby-start.name}", groupId = "${spring.data.kafka.group-id}",
+    containerFactory = "kafkaListenerContainerFactory")
     public void consume(LobbyStartEvent event, Acknowledgment ack) {
         try {
-            System.out.println("зашел 2");
-            log.info("Consumed lobby start event: {}", event);
-            lobbyService.createLobby(event.getMode(), event.getFormat(), "76561198258376387", event.getTournamentMatchId());
+            log.info("Consumed lobby event: {}", event);
+            lobbyService.createLobby(event.getMode(), event.getFormat(), event.getTeam1(), event.getTeam2(), event.getTournamentMatchId());
+            ack.acknowledge();
+        } catch (LobbyNotFoundException e) {
+            log.warn("Lobby not found, will retry: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
-            throw new KafkaConsumerException(e);
-
+            log.error("Unexpected error in consumer: {}", e.getMessage(), e);
+            ack.acknowledge();
         }
     }
 }

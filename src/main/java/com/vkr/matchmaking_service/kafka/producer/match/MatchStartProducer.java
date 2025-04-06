@@ -1,6 +1,7 @@
 package com.vkr.matchmaking_service.kafka.producer.match;
 
 import com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent;
+import com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent;
 import com.vkr.matchmaking_service.kafka.producer.AbstractKafkaProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -12,13 +13,13 @@ import java.util.Map;
 
 @Slf4j
 @Component
-public class MatchProducer extends AbstractKafkaProducer<MatchEndEvent> {
+public class MatchStartProducer extends AbstractKafkaProducer<MatchStartEvent> {
 
-    @Value("${spring.data.kafka.topics.topic-settings.match-end.name}")
+    @Value("${spring.data.kafka.topics.topic-settings.match-start.name}")
     private String channelTopic;
 
-    public MatchProducer(KafkaTemplate<String, Object> kafkaTemplate,
-                           Map<String, NewTopic> topicMap) {
+    public MatchStartProducer(KafkaTemplate<String, Object> kafkaTemplate,
+                              Map<String, NewTopic> topicMap) {
         super(kafkaTemplate, topicMap);
     }
 

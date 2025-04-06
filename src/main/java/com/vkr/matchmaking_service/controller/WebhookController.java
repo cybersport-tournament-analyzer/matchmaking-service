@@ -1,9 +1,9 @@
 package com.vkr.matchmaking_service.controller;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.webhooks.WebhooksService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,8 +13,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/webhooks")

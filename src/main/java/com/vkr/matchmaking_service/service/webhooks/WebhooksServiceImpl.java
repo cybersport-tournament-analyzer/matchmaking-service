@@ -1,12 +1,14 @@
 package com.vkr.matchmaking_service.service.webhooks;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent;
+import com.vkr.matchmaking_service.kafka.producer.match.MatchStartProducer;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.exception.MatchNotFoundException;
 import com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent;
-import com.vkr.matchmaking_service.kafka.producer.match.MatchProducer;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.kafka.producer.match.MatchEndProducer;
+import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -26,10 +29,11 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
-    private final MatchProducer matchProducer;
+    private final MatchEndProducer matchEndProducer;
+    private final MatchStartProducer matchStartProducer;
 
     private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
-        if (lobby.getMode().equals("1x1"))
+        if (lobby.getMode().equals("1vs1"))
             serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
     }
 
@@ -70,7 +74,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         currentLobby.getMatches().add(match);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
             currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
-            messagingTemplate.convertAndSend("/topic/lobbyStart/" + lobbyId, currentLobby);
+            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
         }
         lobbyService.save(currentLobby);
     }
@@ -104,12 +108,12 @@ public class WebhooksServiceImpl implements WebhooksService {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
-                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
@@ -120,7 +124,7 @@ public class WebhooksServiceImpl implements WebhooksService {
             case "bo5" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                matchProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), match));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
@@ -148,6 +152,10 @@ public class WebhooksServiceImpl implements WebhooksService {
     @Override
     public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("handleEvent: " + match);
+        Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
+        if(match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("match_started")) {
+            matchStartProducer.produce(new MatchStartEvent(currentLobby.getTournamentMatchId(), OffsetDateTime.now()));
+        }
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
     }

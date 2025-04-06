@@ -1,5 +1,6 @@
-package com.vkr.matchmaking_service.entity.lobby;
+package com.vkr.matchmaking_service.redis.cache.lobby;
 
+import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
@@ -17,7 +18,7 @@ import java.util.*;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-@RedisHash(value = "lobbyStart", timeToLive = 3600)
+@RedisHash(value = "lobby", timeToLive = 3600)
 @Jacksonized
 public class Lobby {
 
@@ -26,7 +27,6 @@ public class Lobby {
 
     private UUID tournamentMatchId;
 
-    @Indexed
     private String mode;
 
     private PickBanSession pickBanSession;
@@ -34,8 +34,8 @@ public class Lobby {
     private String format;
     private String link;
 
-    private Map<Integer, UserDto> team1 = new HashMap<>();
-    private Map<Integer, UserDto> team2 = new HashMap<>();
+    private Map<Integer, PlayerDto> team1 = new HashMap<>();
+    private Map<Integer, PlayerDto> team2 = new HashMap<>();
 
     private int team1Score;
     private int team2Score;
@@ -43,14 +43,17 @@ public class Lobby {
     private String team1Name;
     private String team2Name;
 
+    private String team1flag;
+    private String team2flag;
+
     private int currentMapNumber;
 
     private List<Match> matches = new ArrayList<>();
 
     public int maxPlayersPerTeam() {
         return switch (mode) {
-            case "1x1" -> 1;
-            case "2x2" -> 2;
+            case "1vs1" -> 1;
+            case "2vs2" -> 2;
             default -> 5;
         };
     }
@@ -60,8 +63,8 @@ public class Lobby {
     }
 
     public void setReady(String steamId, boolean ready) {
-        team1.values().stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
-        team2.values().stream().filter(p -> p.getSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+        team1.values().stream().filter(p -> p.getPlayerSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
+        team2.values().stream().filter(p -> p.getPlayerSteamId().equals(steamId)).findFirst().ifPresent(p -> p.setReady(ready));
     }
 
 }

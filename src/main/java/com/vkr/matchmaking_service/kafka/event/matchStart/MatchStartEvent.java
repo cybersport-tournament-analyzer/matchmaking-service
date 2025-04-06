@@ -1,6 +1,5 @@
-package com.vkr.matchmaking_service.kafka.event.matchEnd;
+package com.vkr.matchmaking_service.kafka.event.matchStart;
 
-import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.kafka.event.KafkaEvent;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,10 +13,7 @@ import java.util.UUID;
 @Builder
 @Jacksonized
 @AllArgsConstructor
-public class MatchEndEvent implements KafkaEvent {
+public class MatchStartEvent implements KafkaEvent {
     private UUID tournamentMatchId;
-    private int team1Score;
-    private int team2Score;
-    private OffsetDateTime endTime;
-
+    private OffsetDateTime startTime;
 }

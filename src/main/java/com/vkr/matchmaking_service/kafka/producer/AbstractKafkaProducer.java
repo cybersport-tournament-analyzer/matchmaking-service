@@ -17,7 +17,7 @@ public abstract class AbstractKafkaProducer<T extends KafkaEvent> implements Kaf
     private final Map<String, NewTopic> topicMap;
 
     @Override
-//    @Async("kafkaThreadPool")
+    @Async("kafkaThreadPool")
     public void produce(T event) {
 
         NewTopic newCommentTopic = topicMap.get(getTopic());
@@ -26,7 +26,7 @@ public abstract class AbstractKafkaProducer<T extends KafkaEvent> implements Kaf
     }
 
     @Override
-//    @Async("kafkaThreadPool")
+    @Async("kafkaThreadPool")
     public void produce(T event, Runnable runnable) {
 
         NewTopic newCommentTopic = topicMap.get(getTopic());

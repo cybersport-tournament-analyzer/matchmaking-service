@@ -1,6 +1,16 @@
-package com.vkr.matchmaking_service.service.lobby;
+package com.vkr.matchmaking_service.redis.service.lobby;
 
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
+import com.vkr.matchmaking_service.dto.tournament_client.team.TeamDto;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
+import com.vkr.matchmaking_service.entity.pickbans.Action;
+import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
+
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 
@@ -12,9 +22,9 @@ public interface LobbyService {
 
     List<Lobby> getAllLobbies();
 
-    Lobby createLobby(String mode, String format, String steamId, UUID tournamentMatchId);
+    void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId);
 
-    void addPlayer(UUID lobbyId, String steamId, int slot);
+    void addPlayer(UUID lobbyId, PlayerDto player, int slot);
 
     void removePlayer(UUID lobbyId, String steamId);
 

@@ -1,33 +1,32 @@
-package com.vkr.matchmaking_service.service.lobby;
+package com.vkr.matchmaking_service.redis.service.lobby;
 
 import com.vkr.matchmaking_service.client.UserServiceClient;
 import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import com.vkr.matchmaking_service.dto.match.*;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
+import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
+import com.vkr.matchmaking_service.dto.tournament_client.team.TeamDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
 import com.vkr.matchmaking_service.exception.*;
+import com.vkr.matchmaking_service.redis.repository.LobbyRepository;
+import com.vkr.matchmaking_service.redis.service.ops.RedisLockOperations;
 import com.vkr.matchmaking_service.service.server.ServerService;
-import com.vkr.matchmaking_service.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.Transaction;
-import redis.clients.jedis.params.ScanParams;
-import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -35,147 +34,106 @@ import java.util.concurrent.*;
 public class LobbyServiceImpl implements LobbyService {
 
     private final UserServiceClient userServiceClient;
-    private final MapsConfig mapsConfig;
-    private final JedisPool jedisPool;
     private final ServerService serverService;
-    private static final String LOBBY_KEY_PREFIX = "lobby:";
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final MapsConfig mapsConfig;
+
+
+    private final RedisLockOperations redisLockOperations;
+    private final LobbyRepository lobbyRepository;
+
     private final SimpMessagingTemplate messagingTemplate;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> timers = new ConcurrentHashMap<>();
 
     @Override
     public List<Lobby> getAllLobbies() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            Set<String> keys = jedis.keys(LOBBY_KEY_PREFIX + "*");
-            if (keys == null || keys.isEmpty()) return Collections.emptyList();
-
-            List<Lobby> lobbies = new ArrayList<>();
-            for (String key : keys) {
-                String json = jedis.get(key);
-                if (json != null) {
-                    lobbies.add(JsonUtils.fromJson(json, Lobby.class));
-                }
-            }
-            return lobbies;
-        }
+        Iterable<Lobby> lobbies = redisLockOperations.findAll(lobbyRepository);
+        List<Lobby> result = new ArrayList<>();
+        lobbies.forEach(result::add);
+        return result;
     }
 
 
     @Override
-    public Lobby createLobby(String mode, String format, String steamId, UUID tournamentMatchId) {
+    public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId) {
 
-        if (!List.of("1x1", "2x2", "5x5").contains(mode)) {
+        if (!List.of("1vs1", "2vs2", "5vs5").contains(mode)) {
             throw new WrongInputException("Wrong game mode!");
         }
 
-        UserDto creator = userServiceClient.getUserBySteamId(steamId);
         Lobby lobby = new Lobby(UUID.randomUUID(), tournamentMatchId, mode, new PickBanSession(),
                 format, null, new HashMap<>(), new HashMap<>(),
-                0, 0, "", "", 0, new ArrayList<>());
+                0, 0, team1.getTeamName(), team2.getTeamName(), team1.getFlag(), team2.getFlag(), 0, new ArrayList<>());
 
-        Lobby currLobby = findCurrentLobbyForPlayer(steamId);
+        save(lobby);
 
-        if (currLobby != null) {
-            removePlayer(currLobby.getId(), steamId);
-        }
-
-        lobby.getTeam1().put(1, creator);
-        lobby.getTeam1().get(1).setCaptain(true);
-
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.setex(LOBBY_KEY_PREFIX + lobby.getId(), 3600, JsonUtils.toJson(lobby));
-        }
-
-        return lobby;
+        AtomicInteger counter = new AtomicInteger(1);
+        team1.getPlayers().forEach(player -> {
+                    player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
+                    addPlayer(lobby.getId(), player, counter.getAndIncrement());
+                }
+        );
+        team2.getPlayers().forEach(player -> {
+                    player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
+                    addPlayer(lobby.getId(), player, counter.getAndIncrement());
+                }
+        );
     }
 
     @Override
-    public void addPlayer(UUID lobbyId, String steamId, int slot) {
-        String key = LOBBY_KEY_PREFIX + lobbyId;
+    public void addPlayer(UUID lobbyId, PlayerDto player, int slot) {
 
-        try (Jedis jedis = jedisPool.getResource()) {
-            String json = jedis.get(key);
-            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
+        Lobby lobby = getLobbyById(String.valueOf(lobbyId));
 
-            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-            if (lobby.full()) throw new LobbyIsFullException("Lobby is full!");
+        if (lobby.full()) throw new LobbyIsFullException("Lobby is full!");
 
-            Map<Integer, UserDto> targetTeam = slot <= lobby.maxPlayersPerTeam() ? lobby.getTeam1() : lobby.getTeam2();
+        Map<Integer, PlayerDto> targetTeam = slot <= lobby.maxPlayersPerTeam() ? lobby.getTeam1() : lobby.getTeam2();
 
-            if (targetTeam.get(slot) != null) {
-                throw new SlotIsOccupiedException("Slot is already occupied!");
-            }
+        if (targetTeam.get(slot) != null) throw new SlotIsOccupiedException("Slot is already occupied!");
+        if (targetTeam.size() >= lobby.maxPlayersPerTeam()) throw new TeamIsFullException("Chosen team is full!");
 
-            if (targetTeam.size() >= lobby.maxPlayersPerTeam()) {
-                throw new TeamIsFullException("Chosen team is full!");
-            }
+        lobby.getTeam1().values().removeIf(p -> p.getPlayerSteamId().equals(player.getPlayerSteamId()));
+        lobby.getTeam2().values().removeIf(p -> p.getPlayerSteamId().equals(player.getPlayerSteamId()));
 
-            UserDto currentPlayer = userServiceClient.getUserBySteamId(steamId);
+        Lobby currentLobby = findCurrentLobbyForPlayer(player.getPlayerSteamId());
+        if (currentLobby != null) removePlayer(currentLobby.getId(), player.getPlayerSteamId());
 
-            lobby.getTeam1().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
-            lobby.getTeam2().values().removeIf(player -> player != null && player.getSteamId().equals(steamId));
-
-            Lobby currLobby = findCurrentLobbyForPlayer(steamId);
-
-            if (currLobby != null) {
-                removePlayer(currLobby.getId(), steamId);
-            }
-
-            targetTeam.put(slot, currentPlayer);
-
-            if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
-                targetTeam.get(slot).setCaptain(true);
-            }
-
-            Transaction transaction = jedis.multi();
-            transaction.setex(key, 3600, JsonUtils.toJson(lobby));
-            transaction.exec();
+        targetTeam.put(slot, player);
+        if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
+            targetTeam.get(slot).setCaptain(true);
         }
+
+        save(lobby);
     }
 
     @Override
     public void removePlayer(UUID lobbyId, String steamId) {
-        String key = LOBBY_KEY_PREFIX + lobbyId;
-
-        try (Jedis jedis = jedisPool.getResource()) {
-            String json = jedis.get(key);
-            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
-
-            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-
-            lobby.getTeam1().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
-            lobby.getTeam2().entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue().getSteamId().equals(steamId));
+        redisLockOperations.updateOrSave(lobbyRepository, lobbyRepository.findById(lobbyId).map(lobby -> {
+            lobby.getTeam1().values().removeIf(p -> p.getPlayerSteamId().equals(steamId));
+            lobby.getTeam2().values().removeIf(p -> p.getPlayerSteamId().equals(steamId));
 
             if (lobby.getTeam1().isEmpty() && lobby.getTeam2().isEmpty()) {
-                jedis.del(key);
-            } else {
-                jedis.setex(key, 3600, JsonUtils.toJson(lobby));
+                redisLockOperations.deleteById(lobbyRepository, lobbyId);
+                return null;
             }
-        }
+            return lobby;
+        }).orElseThrow(() -> new LobbyNotFoundException("Lobby not found!")), lobbyId);
     }
 
     @Override
     public Lobby getLobbyById(String lobbyId) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            String json = jedis.get(LOBBY_KEY_PREFIX + lobbyId);
-            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
-            return JsonUtils.fromJson(json, Lobby.class);
-        }
+        return redisLockOperations.findById(lobbyRepository, UUID.fromString(lobbyId))
+                .orElseThrow(() -> new LobbyNotFoundException("Lobby not found!"));
     }
 
     @Override
     public void setReady(UUID lobbyId, String steamId, boolean ready) {
-        String key = LOBBY_KEY_PREFIX + lobbyId;
 
-        try (Jedis jedis = jedisPool.getResource()) {
-            String json = jedis.get(key);
-            if (json == null) throw new LobbyNotFoundException("Lobby not found!");
+        Lobby lobby = getLobbyById(String.valueOf(lobbyId));
 
-            Lobby lobby = JsonUtils.fromJson(json, Lobby.class);
-            lobby.setReady(steamId, ready);
+        lobby.setReady(steamId, ready);
 
-            jedis.setex(key, 3600, JsonUtils.toJson(lobby));
-        }
+        save(lobby);
     }
 
     @Override
@@ -183,21 +141,16 @@ public class LobbyServiceImpl implements LobbyService {
         Lobby lobby = getLobbyById(lobbyId);
         if (lobby == null) return false;
 
-        if (lobby.getTeam1().values().stream().allMatch(UserDto::isReady) &&
-                lobby.getTeam2().values().stream().allMatch(UserDto::isReady) &&
+        if (lobby.getTeam1().values().stream().allMatch(PlayerDto::isReady) &&
+                lobby.getTeam2().values().stream().allMatch(PlayerDto::isReady) &&
                 lobby.getTeam1().size() + lobby.getTeam2().size() == lobby.maxPlayersPerTeam() * 2) {
-
-            String captainFirstTeamName = lobby.getTeam1().get(1).getSteamUsername();
-            lobby.setTeam1Name("team_" + captainFirstTeamName);
-            String captainSecondTeamName = lobby.getTeam2().get(lobby.maxPlayersPerTeam() + 1).getSteamUsername();
-            lobby.setTeam2Name("team_" + captainSecondTeamName);
-            save(lobby);
 
             return true;
         }
 
         return false;
     }
+
     @Override
     public void processPickBanAction(UUID lobbyId, String steamId, Action actionType, String map, String side) throws IOException, InterruptedException {
         Lobby lobby = getLobbyById(String.valueOf(lobbyId));
@@ -294,7 +247,7 @@ public class LobbyServiceImpl implements LobbyService {
         String serverId;
         if (lobby.getCurrentMapNumber() == 0) {
             serverId = serverService.getAvailableServer().getId();
-            if(lobby.getMode().equals("1x1")){
+            if (lobby.getMode().equals("1vs1")) {
                 serverService.uploadFileToServer(serverId, "cfg/live_server.cfg", Path.of("live_server.cfg"));
             }
         } else {
@@ -306,7 +259,7 @@ public class LobbyServiceImpl implements LobbyService {
         MatchStartingTeamDto team2 = new MatchStartingTeamDto();
 
         switch (lobby.getMode()) {
-            case "1x1":
+            case "1vs1":
                 settings.getCs2_settings().setGame_mode("custom");
                 if (mapsConfig.getMapsByMode(lobby.getMode())
                         .get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())).startsWith("de_")) {
@@ -319,7 +272,7 @@ public class LobbyServiceImpl implements LobbyService {
                             get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 }
                 break;
-            case "2x2":
+            case "2vs2":
                 settings.getCs2_settings().setGame_mode("wingman");
                 if (mapsConfig.getMapsByMode(lobby.getMode())
                         .get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())).startsWith("de_")) {
@@ -332,7 +285,7 @@ public class LobbyServiceImpl implements LobbyService {
                             get(lobby.getPickBanSession().getPickedMaps().get(lobby.getCurrentMapNumber())));
                 }
                 break;
-            case "5x5":
+            case "5vs5":
                 settings.getCs2_settings().setGame_mode("competitive");
                 settings.getCs2_settings().
                         setMapgroup_start_map(mapsConfig.getMapsByMode(lobby.getMode()).
@@ -340,7 +293,7 @@ public class LobbyServiceImpl implements LobbyService {
                 break;
         }
 
-        if (lobby.getCurrentMapNumber() == 0){
+        if (lobby.getCurrentMapNumber() == 0) {
             serverService.updateServer(settings);
         }
 
@@ -364,7 +317,7 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
-        String urlLocal = "https://665g6kt2-8081.inc1.devtunnels.ms/";
+        String urlLocal = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
         webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
@@ -383,11 +336,15 @@ public class LobbyServiceImpl implements LobbyService {
                 team1Side = "team1";
                 team2Side = "team2";
                 team1.setName(lobby.getTeam1Name());
+                team1.setFlag(lobby.getTeam1flag());
+                team2.setFlag(lobby.getTeam2flag());
                 team2.setName(lobby.getTeam2Name());
             } else {
                 team1Side = "team2";
                 team2Side = "team1";
                 team1.setName(lobby.getTeam2Name());
+                team1.setFlag(lobby.getTeam2flag());
+                team2.setFlag(lobby.getTeam1flag());
                 team2.setName(lobby.getTeam1Name());
             }
         } else {
@@ -395,27 +352,33 @@ public class LobbyServiceImpl implements LobbyService {
                 team1Side = "team1";
                 team2Side = "team2";
                 team1.setName(lobby.getTeam1Name());
+                team1.setFlag(lobby.getTeam1flag());
+                team2.setFlag(lobby.getTeam2flag());
                 team2.setName(lobby.getTeam2Name());
             } else {
                 team1Side = "team2";
                 team2Side = "team1";
                 team1.setName(lobby.getTeam2Name());
+                team1.setFlag(lobby.getTeam2flag());
+                team2.setFlag(lobby.getTeam1flag());
                 team2.setName(lobby.getTeam1Name());
             }
         }
         List<StartMatchPlayerDto> players = new ArrayList<>();
-        for (UserDto user : lobby.getTeam1().values()) {
+        for (PlayerDto user : lobby.getTeam1().values()) {
+            UserDto userDto = userServiceClient.getUserBySteamId(user.getPlayerSteamId());
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam(team1Side);
-            playerDto.setSteam_id_64(user.getSteamId());
-            playerDto.setNickname_override(user.getSteamUsername());
+            playerDto.setSteam_id_64(userDto.getSteamId());
+            playerDto.setNickname_override(userDto.getSteamUsername());
             players.add(playerDto);
         }
-        for (UserDto user : lobby.getTeam2().values()) {
+        for (PlayerDto user : lobby.getTeam2().values()) {
+            UserDto userDto = userServiceClient.getUserBySteamId(user.getPlayerSteamId());
             StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
             playerDto.setTeam(team2Side);
-            playerDto.setSteam_id_64(user.getSteamId());
-            playerDto.setNickname_override(user.getSteamUsername());
+            playerDto.setSteam_id_64(userDto.getSteamId());
+            playerDto.setNickname_override(userDto.getSteamUsername());
             players.add(playerDto);
         }
 
@@ -642,18 +605,9 @@ public class LobbyServiceImpl implements LobbyService {
     @Override
     public void save(Lobby lobby) {
         if (lobby == null || lobby.getId() == null) {
-            throw new IllegalArgumentException("Лобби или его ID не может быть null ");
+            throw new LobbyNotFoundException("Лобби не найдено");
         }
-
-        String key = LOBBY_KEY_PREFIX + lobby.getId();
-
-        try (Jedis jedis = jedisPool.getResource()) {
-            String lobbyJson = JsonUtils.toJson(lobby);
-
-            jedis.setex(key, 600, lobbyJson);
-        } catch (Exception e) {
-            log.info("Ошибка при сохранении лобби в Redis: {}", e.getMessage());
-        }
+        redisLockOperations.updateOrSave(lobbyRepository, lobby, lobby.getId());
     }
 
     private String getRandomSide() {
@@ -661,48 +615,24 @@ public class LobbyServiceImpl implements LobbyService {
     }
 
     public Lobby findCurrentLobbyForPlayer(String steamId) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            String cursor = "0";
-            ScanParams scanParams = new ScanParams().match(LOBBY_KEY_PREFIX + "*").count(10);
-
-            do {
-                ScanResult<String> scanResult = jedis.scan(cursor, scanParams);
-                cursor = scanResult.getCursor();
-
-                for (String key : scanResult.getResult()) {
-                    String lobbyJson = jedis.get(key);
-
-                    if (lobbyJson != null) {
-                        Lobby lobby = JsonUtils.fromJson(lobbyJson, Lobby.class);
-
-                        boolean playerInTeam1 = lobby.getTeam1().values().stream()
-                                .anyMatch(player -> steamId.equals(player.getSteamId()));
-
-                        boolean playerInTeam2 = lobby.getTeam2().values().stream()
-                                .anyMatch(player -> steamId.equals(player.getSteamId()));
-
-                        if (playerInTeam1 || playerInTeam2) {
-                            return lobby;
-                        }
-                    }
-                }
-            } while (!cursor.equals("0"));
-        } catch (Exception e) {
-            log.error("Ошибка при поиске лобби для игрока с steamId {}: {}", steamId, e.getMessage());
-        }
-        return null;
+        return getAllLobbies().stream()
+                .filter(lobby ->
+                        lobby.getTeam1().values().stream().anyMatch(p -> steamId.equals(p.getPlayerSteamId())) ||
+                                lobby.getTeam2().values().stream().anyMatch(p -> steamId.equals(p.getPlayerSteamId())))
+                .findFirst()
+                .orElse(null);
     }
 
     public String getTeamForCaptain(String steamId, Lobby lobby) {
         boolean isCaptainInTeam1 = lobby.getTeam1().values().stream()
-                .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
+                .anyMatch(user -> user.getPlayerSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam1) {
             return lobby.getTeam1Name();
         }
 
         boolean isCaptainInTeam2 = lobby.getTeam2().values().stream()
-                .anyMatch(user -> user.getSteamId().equals(steamId) && user.isCaptain());
+                .anyMatch(user -> user.getPlayerSteamId().equals(steamId) && user.isCaptain());
 
         if (isCaptainInTeam2) {
             return lobby.getTeam2Name();

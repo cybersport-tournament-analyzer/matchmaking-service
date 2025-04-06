@@ -1,10 +1,9 @@
 package com.vkr.matchmaking_service.controller;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateLobbyDto;
-import com.vkr.matchmaking_service.entity.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
-import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
-import com.vkr.matchmaking_service.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,7 +27,7 @@ public class LobbyController {
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @PostMapping("/create")
+    /*@PostMapping("/create")
     @ResponseBody
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Create lobbyStart")
@@ -51,7 +50,7 @@ public class LobbyController {
         int slot = Integer.parseInt(data.get("slot"));
         lobbyService.addPlayer(lobbyId, steamId, slot);
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
-    }
+    }*/
 
     @MessageMapping("/ready")
     public void setPlayerReady(@Payload Map<String, String> data) {

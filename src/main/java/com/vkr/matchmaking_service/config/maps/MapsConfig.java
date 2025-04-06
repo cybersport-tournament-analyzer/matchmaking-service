@@ -22,9 +22,8 @@ public class MapsConfig {
         mode1x1.put("AIM_Map", "3084291314");
         mode1x1.put("AIM_Vertigo", "3309764985");
         mode1x1.put("AIM_Case", "3090032979");
-        maps.put("1x1", mode1x1);
+        maps.put("1vs1", mode1x1);
 
-        // Для режима 2x2
         Map<String, String> mode2x2 = new HashMap<>();
         mode2x2.put("Vertigo", "de_vertigo");
         mode2x2.put("Inferno", "de_inferno");
@@ -33,9 +32,8 @@ public class MapsConfig {
         mode2x2.put("Dust II", "3347582685");
         mode2x2.put("Mirage", "3347606169");
         mode2x2.put("Train", "3408016560");
-        maps.put("2x2", mode2x2);
+        maps.put("2vs2", mode2x2);
 
-        // Для режима 5x5
         Map<String, String> mode5x5 = new HashMap<>();
         mode5x5.put("Dust II", "de_dust2");
         mode5x5.put("Inferno", "de_inferno");
@@ -44,7 +42,7 @@ public class MapsConfig {
         mode5x5.put("Ancient", "de_ancient");
         mode5x5.put("Train", "de_train");
         mode5x5.put("Anubis", "de_anubis");
-        maps.put("5x5", mode5x5);
+        maps.put("5vs5", mode5x5);
     }
 
     public Map<String, String> getMapsByMode(String mode) {
