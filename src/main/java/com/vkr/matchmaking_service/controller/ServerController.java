@@ -4,6 +4,8 @@ package com.vkr.matchmaking_service.controller;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.dto.server.ConsoleLogDto;
+import com.vkr.matchmaking_service.dto.server.ServerMetricsDto;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 
 @RestController
@@ -106,6 +109,20 @@ public class ServerController {
     @Operation(summary = "Update server")
     public void updateServer(@RequestBody ServerSettingsDto server) throws IOException, InterruptedException {
         serverService.updateServer(server);
+    }
+
+    @GetMapping("/metrics/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Get server metrics by id")
+    public ServerMetricsDto getServerMetrics(@PathVariable String serverId) throws IOException, InterruptedException {
+        return serverService.getServerMetrics(serverId);
+    }
+
+    @GetMapping("/console/{serverId}")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Get server console by id")
+    public List<String> getServerMetrics(@PathVariable String serverId, @RequestParam int maxLines) throws IOException, InterruptedException {
+        return serverService.getConsoleLogs(serverId, maxLines);
     }
 
 }

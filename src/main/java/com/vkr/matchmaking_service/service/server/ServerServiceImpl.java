@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
+import com.vkr.matchmaking_service.dto.server.ConsoleLogDto;
+import com.vkr.matchmaking_service.dto.server.ServerMetricsDto;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.server.Server;
@@ -299,6 +301,46 @@ public class ServerServiceImpl implements ServerService {
             System.err.println("Failed to update game mode. Status code: " + response.statusCode());
             System.err.println("Response: " + response.body());
         }
+    }
+
+    @Override
+    public ServerMetricsDto getServerMetrics(String serverId) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serversUrl + "/" + serverId + "/metrics"))
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new ServerNotFoundException("Server with id " + serverId + " not found");
+        }
+
+        return objectMapper.readValue(response.body(), ServerMetricsDto.class);
+    }
+
+    @Override
+    public List<String> getConsoleLogs(String serverId, int maxLines) throws IOException, InterruptedException {
+        String uri = String.format("%s/%s/console?max_lines=%d", serversUrl, serverId, maxLines);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .header("Authorization", "Basic " + auth)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.body().isEmpty() && response.statusCode() != 200) {
+            throw new ServerNotFoundException("Server with id " + serverId + " not found");
+        }
+
+        return objectMapper.readValue(response.body(), ConsoleLogDto.class).getLines();
     }
 
     private static byte[] concatBytes(byte[]... arrays) {
