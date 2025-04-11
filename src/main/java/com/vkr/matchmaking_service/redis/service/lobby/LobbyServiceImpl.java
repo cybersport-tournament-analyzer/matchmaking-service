@@ -55,14 +55,14 @@ public class LobbyServiceImpl implements LobbyService {
 
 
     @Override
-    public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId) {
+    public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, String adminId) {
 
         if (!List.of("1vs1", "2vs2", "5vs5").contains(mode)) {
             throw new WrongInputException("Wrong game mode!");
         }
 
         Lobby lobby = new Lobby(UUID.randomUUID(), tournamentMatchId, mode, new PickBanSession(),
-                format, null, new HashMap<>(), new HashMap<>(),
+                format, null, new StartMatchPlayerDto(adminId, "spectator", "observer"), new HashMap<>(), new HashMap<>(),
                 0, 0, team1.getTeamName(), team2.getTeamName(), team1.getFlag(), team2.getFlag(), 0, new ArrayList<>());
 
         save(lobby);
@@ -158,6 +158,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         PickBanAction action = PickBanAction.builder().team(getTeamForCaptain(steamId, lobby))
                 .action(actionType).mapOrSide(map != null ? map : side).build();
+
 
         updateSessionState(session, action, lobby);
         lobby.setPickBanSession(session);
@@ -302,6 +303,7 @@ public class LobbyServiceImpl implements LobbyService {
         matchStartingDto.setGame_server_id(serverId);
 
         MatchSettingsDto matchSettingsDto = new MatchSettingsDto();
+        matchSettingsDto.setMatch_begin_countdown(15);
 
         String map = "workshop/";
 
@@ -320,9 +322,9 @@ public class LobbyServiceImpl implements LobbyService {
         String urlLocal = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://109.172.95.212:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlLocal + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlLocal + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlLocal + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -386,6 +388,8 @@ public class LobbyServiceImpl implements LobbyService {
         matchStartingDto.setSettings(matchSettingsDto);
         matchStartingDto.setTeam1(team1);
         matchStartingDto.setTeam2(team2);
+
+        matchStartingDto.getPlayers().add(lobby.getAdmin());
 
         Match currLobbyMatch = serverService.startMatch(matchStartingDto);
         lobby.getMatches().add(currLobbyMatch);
@@ -608,6 +612,11 @@ public class LobbyServiceImpl implements LobbyService {
             throw new LobbyNotFoundException("Лобби не найдено");
         }
         redisLockOperations.updateOrSave(lobbyRepository, lobby, lobby.getId());
+    }
+
+    @Override
+    public void deleteLobby(UUID lobbyId) {
+        redisLockOperations.deleteById(lobbyRepository, lobbyId);
     }
 
     private String getRandomSide() {

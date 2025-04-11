@@ -26,7 +26,7 @@ public class LobbyStartConsumer implements KafkaConsumer<LobbyStartEvent> {
     public void consume(LobbyStartEvent event, Acknowledgment ack) {
         try {
             log.info("Consumed lobby event: {}", event);
-            lobbyService.createLobby(event.getMode(), event.getFormat(), event.getTeam1(), event.getTeam2(), event.getTournamentMatchId());
+            lobbyService.createLobby(event.getMode(), event.getFormat(), event.getTeam1(), event.getTeam2(), event.getTournamentMatchId(), event.getAdminId());
             ack.acknowledge();
         } catch (LobbyNotFoundException e) {
             log.warn("Lobby not found, will retry: {}", e.getMessage());

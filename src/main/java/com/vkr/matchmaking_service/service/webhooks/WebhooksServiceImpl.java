@@ -1,15 +1,17 @@
 package com.vkr.matchmaking_service.service.webhooks;
 
 import com.vkr.matchmaking_service.dto.lobby.CreateMatchDto;
-import com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent;
-import com.vkr.matchmaking_service.kafka.producer.match.MatchStartProducer;
-import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.exception.MatchNotFoundException;
 import com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent;
+import com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent;
 import com.vkr.matchmaking_service.kafka.producer.match.MatchEndProducer;
+import com.vkr.matchmaking_service.kafka.producer.match.MatchStartProducer;
+import com.vkr.matchmaking_service.kafka.producer.round.RoundEndProducer;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
+import com.vkr.matchmaking_service.utils.ConsoleLogParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -17,9 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -31,14 +31,53 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final ServerService serverService;
     private final MatchEndProducer matchEndProducer;
     private final MatchStartProducer matchStartProducer;
+    private final RoundEndProducer roundEndProducer;
+    private final ConsoleLogParser consoleLogParser;
+
+    @Override
+    public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
+        log.info("handleEvent: " + match);
+        Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
+        if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("match_started")) {
+            matchStartProducer.produce(new MatchStartEvent(currentLobby.getTournamentMatchId(), OffsetDateTime.now()));
+        }
+        updateMatch(match, lobbyId);
+        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
+    }
+
+    @Override
+    public void handleMatchEnd(Match match, String lobbyId) throws IOException, InterruptedException {
+        log.info("match end: " + match);
+        updateEndedMatch(match, lobbyId);
+        lobbyService.deleteLobby(UUID.fromString(lobbyId));
+        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
+    }
+
+    @Override
+    public void handleRoundEnd(Match match, String lobbyId) throws IOException, InterruptedException {
+        log.info("round end: " + match);
+        List<String> consoleLogs = serverService.getConsoleLogs(match.getGame_server_id(), 200);
+        for(String consoleLog : consoleLogs) {
+            System.out.println(consoleLog);
+        }
+        roundEndProducer.produce(consoleLogParser.parseRoundEnd(consoleLogs, match));
+        updateMatch(match, lobbyId);
+        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
+    }
+
+    @Override
+    public Match getMatchById(String lobbyId) {
+        Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
+        return currentLobby.getMatches().get(currentLobby.getMatches().size() - 1);
+    }
 
     private void deleteFileFromServer(Lobby lobby, String serverId) throws IOException, InterruptedException {
         if (lobby.getMode().equals("1vs1"))
             serverService.deleteFileFromServer(serverId, "cfg/live_server.cfg");
     }
 
-    private void checkMissingPlayers(Match match){
-        if(match.getCancel_reason() != null && match.getCancel_reason().startsWith("MISSING_PLAYERS")){
+    private void checkMissingPlayers(Match match) {
+        if (match.getCancel_reason() != null && match.getCancel_reason().startsWith("MISSING_PLAYERS")) {
             Set<String> missingPlayers = new HashSet<>(Arrays.asList(match.getCancel_reason()
                     .split(":")[1].split(",")));
 
@@ -68,7 +107,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
-                        () -> new MatchNotFoundException("Match not found in lobbyStart: " + lobbyId)
+                        () -> new MatchNotFoundException("Match not found in lobby: " + lobbyId)
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
@@ -83,7 +122,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         Match currentMatch = currentLobby.getMatches().stream().
                 filter(match1 -> match1.getId().equals(match.getId())).findFirst().orElseThrow(
-                        () -> new MatchNotFoundException("Match not found in lobbyStart: " + lobbyId)
+                        () -> new MatchNotFoundException("Match not found in lobby: " + lobbyId)
                 );
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
@@ -147,37 +186,5 @@ public class WebhooksServiceImpl implements WebhooksService {
         createMatchDto.setTeam1Name(currentLobby.getTeam1Name());
         createMatchDto.setTeam2Name(currentLobby.getTeam2Name());
         return createMatchDto;
-    }
-
-    @Override
-    public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
-        log.info("handleEvent: " + match);
-        Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
-        if(match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("match_started")) {
-            matchStartProducer.produce(new MatchStartEvent(currentLobby.getTournamentMatchId(), OffsetDateTime.now()));
-        }
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handleMatchEnd(Match match, String lobbyId) throws IOException, InterruptedException {
-        log.info("match end: " + match);
-        updateEndedMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-    @Override
-    public void handleRoundEnd(Match match, String lobbyId) throws IOException, InterruptedException {
-        log.info("round end: " + match);
-        updateMatch(match, lobbyId);
-        messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-    }
-
-
-    @Override
-    public Match getMatchById(String lobbyId) {
-        Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
-        return currentLobby.getMatches().get(currentLobby.getMatches().size() - 1);
     }
 }

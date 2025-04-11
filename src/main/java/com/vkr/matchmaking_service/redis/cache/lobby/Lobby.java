@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.redis.cache.lobby;
 
+import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
 import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
@@ -33,6 +34,8 @@ public class Lobby {
 
     private String format;
     private String link;
+
+    private StartMatchPlayerDto admin;
 
     private Map<Integer, PlayerDto> team1 = new HashMap<>();
     private Map<Integer, PlayerDto> team2 = new HashMap<>();

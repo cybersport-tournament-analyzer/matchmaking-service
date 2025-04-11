@@ -76,6 +76,7 @@ public class ServerServiceImpl implements ServerService {
             if (availableServer.isPresent()) {
                 return availableServer.get();
             } else {
+                System.out.println("ищу сервер");
                 Thread.sleep(10000);
             }
         }

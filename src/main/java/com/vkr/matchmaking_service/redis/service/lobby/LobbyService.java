@@ -22,7 +22,7 @@ public interface LobbyService {
 
     List<Lobby> getAllLobbies();
 
-    void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId);
+    void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, String adminId);
 
     void addPlayer(UUID lobbyId, PlayerDto player, int slot);
 
@@ -47,4 +47,6 @@ public interface LobbyService {
     void stopTimer(PickBanSession session);
 
     void save(Lobby lobby);
+
+    void deleteLobby(UUID lobbyId);
 }

@@ -24,4 +24,5 @@ public class LobbyStartEvent implements KafkaEvent {
     private LocalDateTime startTime;
     private TeamDto team1;
     private TeamDto team2;
+    private String adminId;
 }

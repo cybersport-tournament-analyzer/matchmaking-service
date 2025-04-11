@@ -31,7 +31,8 @@ public class KafkaProducerConfig {
                 """
                 match-end:com.vkr.matchmaking_service.kafka.event.matchEnd.MatchEndEvent,
                 match-start:com.vkr.matchmaking_service.kafka.event.matchStart.MatchStartEvent,
-                lobby-start:com.vkr.matchmaking_service.kafka.event.lobbyStart.LobbyStartEvent
+                lobby-start:com.vkr.matchmaking_service.kafka.event.lobbyStart.LobbyStartEvent,
+                round-end:com.vkr.matchmaking_service.kafka.event.roundEnd.RoundEndEvent
                 """);
 
         return new DefaultKafkaProducerFactory<>(props);
