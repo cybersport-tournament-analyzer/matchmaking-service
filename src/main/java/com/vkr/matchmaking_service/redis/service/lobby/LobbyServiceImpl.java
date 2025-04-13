@@ -61,7 +61,7 @@ public class LobbyServiceImpl implements LobbyService {
             throw new WrongInputException("Wrong game mode!");
         }
 
-        Lobby lobby = new Lobby(tournamentMatchId, tournamentMatchId, mode, new PickBanSession(),
+        Lobby lobby = new Lobby(tournamentMatchId, tournamentId, mode, new PickBanSession(),
                 format, null, new StartMatchPlayerDto(adminId, "spectator", "observer"), new HashMap<>(), new HashMap<>(),
                 0, 0, team1.getTeamName(), team2.getTeamName(), team1.getFlag(), team2.getFlag(), 0, new ArrayList<>());
 

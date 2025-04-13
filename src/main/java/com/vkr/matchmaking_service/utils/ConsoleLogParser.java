@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,13 +34,15 @@ public class ConsoleLogParser {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RoundStatsMapper roundStatsMapper;
 
-    public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match) {
+    public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match, UUID tournamentMatchId, UUID tournamentId) {
         List<String> logLines = extractRelevantLines(allLogLines);
         RoundStatsDto statsDto = extractRoundStats(logLines, match.getRounds_played());
         RoundEndReasonDto reasonDto = extractRoundEndReason(logLines);
         List<KillEventDto> killEvents = extractKillEvents(logLines);
 
         return RoundEndEvent.builder()
+                .tournamentMatchId(tournamentMatchId)
+                .tournamentId(tournamentId)
                 .roundStats(statsDto)
                 .roundEndReason(reasonDto)
                 .killEvents(killEvents)
