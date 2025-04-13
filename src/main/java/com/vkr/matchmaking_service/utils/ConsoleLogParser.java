@@ -46,6 +46,7 @@ public class ConsoleLogParser {
                 .roundStats(statsDto)
                 .roundEndReason(reasonDto)
                 .killEvents(killEvents)
+                .isFinal(isFinal(allLogLines))
                 .build();
     }
 
@@ -155,5 +156,14 @@ public class ConsoleLogParser {
             }
         }
         return events;
+    }
+
+    private boolean isFinal(List<String> logLines) {
+        for (String line : logLines) {
+            if (line.contains("Game Over")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -22,5 +22,5 @@ public class RoundEndEvent implements KafkaEvent {
     private RoundStatsDto roundStats;
     private RoundEndReasonDto roundEndReason;
     private List<KillEventDto> killEvents;
-
+    private boolean isFinal;
 }
