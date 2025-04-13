@@ -26,7 +26,7 @@ public class Lobby {
     @Id
     private UUID id;
 
-    private UUID tournamentMatchId;
+    private UUID tournamentId;
 
     private String mode;
 

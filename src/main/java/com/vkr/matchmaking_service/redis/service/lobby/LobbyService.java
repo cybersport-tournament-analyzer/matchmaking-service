@@ -22,7 +22,7 @@ public interface LobbyService {
 
     List<Lobby> getAllLobbies();
 
-    void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, String adminId);
+    void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, UUID tournamentId, String adminId);
 
     void addPlayer(UUID lobbyId, PlayerDto player, int slot);
 

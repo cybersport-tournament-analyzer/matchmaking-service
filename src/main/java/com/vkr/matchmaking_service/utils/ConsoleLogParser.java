@@ -35,10 +35,6 @@ public class ConsoleLogParser {
 
     public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match) {
         List<String> logLines = extractRelevantLines(allLogLines);
-        System.out.println("______________________");
-        for(String line : logLines) {
-            System.out.println(line);
-        }
         RoundStatsDto statsDto = extractRoundStats(logLines, match.getRounds_played());
         RoundEndReasonDto reasonDto = extractRoundEndReason(logLines);
         List<KillEventDto> killEvents = extractKillEvents(logLines);
@@ -97,10 +93,8 @@ public class ConsoleLogParser {
 
                     insideJson = false;
                 } else {
-                    // удаляем префикс даты и времени
                     line = line.replaceFirst("^.*?L \\d{2}/\\d{2}/\\d{4} - \\d{2}:\\d{2}:\\d{2}: ", "").trim();
 
-                    // вставляем запятую между "fields" и "players"
                     if (line.startsWith("\"players\"")) {
                         int lastNewline = jsonBuilder.lastIndexOf("\n");
                         if (lastNewline != -1 && jsonBuilder.charAt(lastNewline - 1) != ',') {
@@ -108,9 +102,7 @@ public class ConsoleLogParser {
                         }
                     }
 
-                    // если это строка "player_N"
                     if (line.startsWith("\"player_")) {
-                        // проверяем, что следующая строка — это JSON_END => значит эта строка последняя в players
                         if (i + 1 < logLines.size() && !JSON_END.matcher(logLines.get(i + 1)).find()) {
                             line += ",";
                         }
@@ -155,6 +147,7 @@ public class ConsoleLogParser {
                         .weapon(m.group(7))
                         .headshot(m.group(8) != null && m.group(8).contains("headshot"))
                         .penetrated(m.group(8) != null && m.group(8).contains("penetrated"))
+                        .noscope(m.group(8) != null && m.group(8).contains("noscope"))
                         .build());
             }
         }

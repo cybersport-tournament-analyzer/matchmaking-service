@@ -39,7 +39,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         log.info("handleEvent: " + match);
         Lobby currentLobby = lobbyService.getLobbyById(lobbyId);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("match_started")) {
-            matchStartProducer.produce(new MatchStartEvent(currentLobby.getTournamentMatchId(), OffsetDateTime.now()));
+            matchStartProducer.produce(new MatchStartEvent(currentLobby.getId(), OffsetDateTime.now()));
         }
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
@@ -49,17 +49,14 @@ public class WebhooksServiceImpl implements WebhooksService {
     public void handleMatchEnd(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("match end: " + match);
         updateEndedMatch(match, lobbyId);
-        lobbyService.deleteLobby(UUID.fromString(lobbyId));
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
+        lobbyService.deleteLobby(UUID.fromString(lobbyId));
     }
 
     @Override
     public void handleRoundEnd(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("round end: " + match);
         List<String> consoleLogs = serverService.getConsoleLogs(match.getGame_server_id(), 200);
-        for(String consoleLog : consoleLogs) {
-            System.out.println(consoleLog);
-        }
         roundEndProducer.produce(consoleLogParser.parseRoundEnd(consoleLogs, match));
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
@@ -147,12 +144,12 @@ public class WebhooksServiceImpl implements WebhooksService {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
-                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(0)));
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(currentLobby.getMatches().size() - 1)));
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
@@ -163,7 +160,7 @@ public class WebhooksServiceImpl implements WebhooksService {
             case "bo5" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
-                matchEndProducer.produce(new MatchEndEvent(currentLobby.getTournamentMatchId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now()));
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(currentLobby.getMatches().size() - 1)));
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);

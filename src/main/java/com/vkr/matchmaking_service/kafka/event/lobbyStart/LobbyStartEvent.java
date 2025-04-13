@@ -18,6 +18,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class LobbyStartEvent implements KafkaEvent {
     private UUID tournamentMatchId;
+    private UUID tournamentId;
     private String mode;
     private String format;
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")

@@ -10,12 +10,15 @@ import lombok.Data;
 import lombok.extern.jackson.Jacksonized;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
 @Jacksonized
 @AllArgsConstructor
 public class RoundEndEvent implements KafkaEvent {
+    private UUID tournamentMatchId;
+    private UUID tournamentId;
     private RoundStatsDto roundStats;
     private RoundEndReasonDto roundEndReason;
     private List<KillEventDto> killEvents;

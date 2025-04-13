@@ -23,4 +23,5 @@ public class KillEventDto {
     private String weapon;
     private boolean headshot;
     private boolean penetrated;
+    private boolean noscope;
 }

@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.kafka.event.matchEnd;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.kafka.event.KafkaEvent;
 import lombok.AllArgsConstructor;
@@ -16,8 +17,9 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MatchEndEvent implements KafkaEvent {
     private UUID tournamentMatchId;
+    private UUID tournamentId;
     private int team1Score;
     private int team2Score;
     private OffsetDateTime endTime;
-
+    private Match match;
 }

@@ -55,13 +55,13 @@ public class LobbyServiceImpl implements LobbyService {
 
 
     @Override
-    public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, String adminId) {
+    public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, UUID tournamentId, String adminId) {
 
         if (!List.of("1vs1", "2vs2", "5vs5").contains(mode)) {
             throw new WrongInputException("Wrong game mode!");
         }
 
-        Lobby lobby = new Lobby(UUID.randomUUID(), tournamentMatchId, mode, new PickBanSession(),
+        Lobby lobby = new Lobby(tournamentMatchId, tournamentMatchId, mode, new PickBanSession(),
                 format, null, new StartMatchPlayerDto(adminId, "spectator", "observer"), new HashMap<>(), new HashMap<>(),
                 0, 0, team1.getTeamName(), team2.getTeamName(), team1.getFlag(), team2.getFlag(), 0, new ArrayList<>());
 
