@@ -11,12 +11,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -35,10 +33,33 @@ public class ConsoleLogParser {
     private final RoundStatsMapper roundStatsMapper;
 
     public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match, UUID tournamentMatchId, UUID tournamentId) {
+        int isFinalRound = isFinal(allLogLines);
+        System.out.println(isFinalRound);
         List<String> logLines = extractRelevantLines(allLogLines);
         RoundStatsDto statsDto = extractRoundStats(logLines, match.getRounds_played());
+
+        assert statsDto != null;
+        Map<String, String> replaces = replaceAccountIdsWithSteamIds(statsDto.getPlayers(), match.getPlayers());
+
+        for (Map<String, String> player : statsDto.getPlayers()) {
+            String accountId = player.get("accountid");
+            if (accountId != null && replaces.containsKey(accountId)) {
+                player.put("accountid", replaces.get(accountId)); // заменяем на steam_id_64
+            }
+        }
+
+        for (Map.Entry<String, String> entry : replaces.entrySet()) {
+            System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
+        }
+
+        for (Map<String, String> player : statsDto.getPlayers()) {
+            for (Map.Entry<String, String> entry : player.entrySet()) {
+                System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
+            }
+        }
+
         RoundEndReasonDto reasonDto = extractRoundEndReason(logLines);
-        List<KillEventDto> killEvents = extractKillEvents(logLines);
+        List<KillEventDto> killEvents = extractKillEvents(logLines, replaces);
 
         return RoundEndEvent.builder()
                 .tournamentMatchId(tournamentMatchId)
@@ -46,8 +67,19 @@ public class ConsoleLogParser {
                 .roundStats(statsDto)
                 .roundEndReason(reasonDto)
                 .killEvents(killEvents)
-                .isFinal(isFinal(allLogLines))
+                .isFinal(isFinalRound)
+                .match(match)
                 .build();
+    }
+
+    private Map<String, String> replaceAccountIdsWithSteamIds(List<Map<String, String>> playersFromConsole, List<Match.Player> playersFromMatch) {
+        Map<String, String> replaces = new HashMap<>();
+        for (int i = 0; i < playersFromConsole.size(); i++) {
+            Map<String, String> consoleStats = playersFromConsole.get(i);
+            Match.Player matchPlayer = playersFromMatch.get(i);
+            replaces.put(consoleStats.get("accountid"), matchPlayer.getSteam_id_64());
+        }
+        return replaces;
     }
 
     private List<String> extractRelevantLines(List<String> lines) {
@@ -117,7 +149,6 @@ public class ConsoleLogParser {
             }
         }
 
-
         return null;
     }
 
@@ -136,34 +167,50 @@ public class ConsoleLogParser {
         return null;
     }
 
-    private List<KillEventDto> extractKillEvents(List<String> logLines) {
+    private List<KillEventDto> extractKillEvents(List<String> logLines, Map<String, String> replaces) {
         List<KillEventDto> events = new ArrayList<>();
         for (String line : logLines) {
             Matcher m = KILL_EVENT_PATTERN.matcher(line);
             if (m.find()) {
+                String killerAccountId = m.group(2);
+                killerAccountId = killerAccountId.replace("[U:1:", "");
+                killerAccountId = killerAccountId.replace("]", "");
+
+                String victimAccountId = m.group(5);
+                victimAccountId = victimAccountId.replace("[U:1:", "");
+                victimAccountId = victimAccountId.replace("]", "");
+
+                String killerSteamId = replaces.get(killerAccountId);
+                System.out.println(killerSteamId);
+                String victimSteamId = replaces.get(victimAccountId);
+                System.out.println(victimSteamId);
+
                 events.add(KillEventDto.builder()
                         .killerName(m.group(1))
-                        .killerSteamId(m.group(2))
+                        .killerSteamId(killerSteamId)
                         .killerTeam(m.group(3))
                         .victimName(m.group(4))
-                        .victimSteamId(m.group(5))
+                        .victimSteamId(victimSteamId)
                         .victimTeam(m.group(6))
                         .weapon(m.group(7))
                         .headshot(m.group(8) != null && m.group(8).contains("headshot"))
                         .penetrated(m.group(8) != null && m.group(8).contains("penetrated"))
                         .noscope(m.group(8) != null && m.group(8).contains("noscope"))
+                        .smoke(m.group(8) != null && m.group(8).contains("throughsmoke"))
                         .build());
             }
         }
         return events;
     }
 
-    private boolean isFinal(List<String> logLines) {
+    private int isFinal(List<String> logLines) {
+        if (logLines == null) return 1;
+
         for (String line : logLines) {
-            if (line.contains("Game Over")) {
-                return true;
+            if (line.contains("ACCOLADE, FINAL") || line.contains("Game Over:")) {
+                return 2;
             }
         }
-        return false;
+        return 1;
     }
 }

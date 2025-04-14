@@ -24,4 +24,5 @@ public class KillEventDto {
     private boolean headshot;
     private boolean penetrated;
     private boolean noscope;
+    private boolean smoke;
 }
