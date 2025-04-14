@@ -44,7 +44,7 @@ public class ConsoleLogParser {
         for (Map<String, String> player : statsDto.getPlayers()) {
             String accountId = player.get("accountid");
             if (accountId != null && replaces.containsKey(accountId)) {
-                player.put("accountid", replaces.get(accountId)); // заменяем на steam_id_64
+                player.put("accountid", replaces.get(accountId));
             }
         }
 
