@@ -50,7 +50,6 @@ public class WebhooksServiceImpl implements WebhooksService {
         log.info("match end: " + match);
         updateEndedMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
-        lobbyService.deleteLobby(UUID.fromString(lobbyId));
     }
 
     @Override
@@ -145,6 +144,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
                 matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(0)));
+                lobbyService.deleteLobby(UUID.fromString(lobbyId));
             }
             case "bo3" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
@@ -153,6 +153,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
+                    lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
@@ -164,6 +165,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
+                    lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
