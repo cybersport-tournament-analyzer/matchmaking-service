@@ -7,13 +7,15 @@ import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
 import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
 import com.vkr.matchmaking_service.dto.tournament_client.team.TeamDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
-import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.Action;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanAction;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import com.vkr.matchmaking_service.entity.pickbans.SideSelection;
 import com.vkr.matchmaking_service.exception.*;
+import com.vkr.matchmaking_service.kafka.event.pickbans.PickBansEvent;
+import com.vkr.matchmaking_service.kafka.producer.pickbans.PickBansProducer;
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.redis.repository.LobbyRepository;
 import com.vkr.matchmaking_service.redis.service.ops.RedisLockOperations;
 import com.vkr.matchmaking_service.service.server.ServerService;
@@ -36,6 +38,7 @@ public class LobbyServiceImpl implements LobbyService {
     private final UserServiceClient userServiceClient;
     private final ServerService serverService;
     private final MapsConfig mapsConfig;
+    private final PickBansProducer pickBansProducer;
 
 
     private final RedisLockOperations redisLockOperations;
@@ -366,6 +369,15 @@ public class LobbyServiceImpl implements LobbyService {
                 team2.setName(lobby.getTeam1Name());
             }
         }
+
+        pickBansProducer.produce(new PickBansEvent(
+                        lobby.getPickBanSession().getActionsLogs(),
+                        team1.getName(),
+                        team2.getName(),
+                        lobby.getTournamentId()
+                )
+        );
+
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (PlayerDto user : lobby.getTeam1().values()) {
             UserDto userDto = userServiceClient.getUserBySteamId(user.getPlayerSteamId());
