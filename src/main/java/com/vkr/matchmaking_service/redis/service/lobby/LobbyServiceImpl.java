@@ -71,6 +71,7 @@ public class LobbyServiceImpl implements LobbyService {
         save(lobby);
 
         AtomicInteger counter = new AtomicInteger(1);
+        
         team1.getPlayers().forEach(player -> {
                     player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
                     addPlayer(lobby.getId(), player, counter.getAndIncrement());
