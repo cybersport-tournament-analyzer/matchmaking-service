@@ -9,6 +9,10 @@ import com.vkr.matchmaking_service.kafka.producer.match.MatchEndProducer;
 import com.vkr.matchmaking_service.kafka.producer.match.MatchStartProducer;
 import com.vkr.matchmaking_service.kafka.producer.round.RoundEndProducer;
 import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.match.MatchCache;
+import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
+import com.vkr.matchmaking_service.redis.repository.MatchRepository;
+import com.vkr.matchmaking_service.redis.repository.SeriesRepository;
 import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import com.vkr.matchmaking_service.utils.ConsoleLogParser;
@@ -18,8 +22,11 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -29,10 +36,15 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
+
+
     private final MatchEndProducer matchEndProducer;
     private final MatchStartProducer matchStartProducer;
     private final RoundEndProducer roundEndProducer;
     private final ConsoleLogParser consoleLogParser;
+
+    private final SeriesRepository seriesRepository;
+    private final MatchRepository matchRepository;
 
     @Override
     public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
@@ -123,27 +135,130 @@ public class WebhooksServiceImpl implements WebhooksService {
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
 
+        MatchCache matchCache = seriesRepository.findByTournamentMatchId(currentLobby.getId()).getMatches().get(currentLobby.getCurrentMapNumber());
+
+        SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(currentLobby.getId());
+        seriesCache.getMatches().remove(currentLobby.getCurrentMapNumber());
+
+        matchCache.setEndTime(LocalDateTime.now());
+        matchCache.setDuration(Duration.between(matchCache.getStartTime(), matchCache.getEndTime()));
+        matchCache.setMatch(match);
+
+        if(matchCache.getTeam1Name().equals(currentLobby.getTeam1Name())) {
+            matchCache.setTeam1Score(match.getTeam1().getStats().getScore());
+            matchCache.setTeam2Score(match.getTeam2().getStats().getScore());
+        } else {
+            matchCache.setTeam1Name(currentLobby.getTeam2Name());
+            matchCache.setTeam2Name(currentLobby.getTeam1Name());
+            matchCache.setTeam2Score(match.getTeam1().getStats().getScore());
+            matchCache.setTeam1Score(match.getTeam2().getStats().getScore());
+        }
+
+        AtomicInteger c = new AtomicInteger(1);
+
+        match.getPlayers().forEach(p -> {
+            if(!p.getTeam().equals("spectator")) {
+                if(c.get() <= currentLobby.maxPlayersPerTeam()) {
+                    matchCache.getTeam1Kda().put(c.getAndIncrement(),
+                            new MatchCache.Kda(p.getStats().getKills(), p.getStats().getDeaths(), p.getStats().getAssists()));
+                } else {
+                    matchCache.getTeam2Kda().put(c.getAndIncrement(),
+                            new MatchCache.Kda(p.getStats().getKills(), p.getStats().getDeaths(), p.getStats().getAssists()));
+                }
+            }
+        });
+
+        matchRepository.save(matchCache);
+
+        matchCache.getTeam1Kda().forEach((k, v) -> {
+            System.out.println(v.getKills() + " " + v.getDeaths() + " " + v.getAssists());
+        });
+
+        matchCache.getTeam2Kda().forEach((k, v) -> {
+            System.out.println(v.getKills() + " " + v.getDeaths() + " " + v.getAssists());
+        });
+
+        seriesCache.getMatches().add(matchCache);
+
+        System.out.println(seriesCache.getMatches().get(currentLobby.getCurrentMapNumber()));
+
         checkMissingPlayers(match);
 
         if (match.getTeam1().getStats().getScore() > match.getTeam2().getStats().getScore()) {
             if (match.getTeam1().getName().equals(currentLobby.getTeam1Name())) {
+                seriesCache.setTeam1Score(seriesCache.getTeam1Score() + 1);
                 currentLobby.setTeam1Score(currentLobby.getTeam1Score() + 1);
             } else {
+                seriesCache.setTeam2Score(seriesCache.getTeam2Score() + 1);
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             }
         } else if (match.getTeam1().getStats().getScore() < match.getTeam2().getStats().getScore()) {
             if (match.getTeam2().getName().equals(currentLobby.getTeam2Name())) {
+                seriesCache.setTeam2Score(seriesCache.getTeam2Score() + 1);
                 currentLobby.setTeam2Score(currentLobby.getTeam2Score() + 1);
             } else {
+                seriesCache.setTeam1Score(seriesCache.getTeam1Score() + 1);
                 currentLobby.setTeam1Score(currentLobby.getTeam1Score() + 1);
             }
         }
+
+        seriesCache.getTeam1Kda().forEach((k, v) -> {
+            System.out.println(v.getKills() + "," + v.getDeaths() + "," + v.getAssists());
+        });
+        System.out.println("--------------------------------------------------");
+        seriesCache.getTeam2Kda().forEach((k, v) -> {
+            System.out.println(v.getKills() + "," + v.getDeaths() + "," + v.getAssists());
+        });
+
+
+        AtomicInteger c2 = new AtomicInteger(1);
+
+        match.getPlayers().forEach(p -> {
+            if(!p.getTeam().equals("spectator")) {
+                if(c2.get() <= currentLobby.maxPlayersPerTeam()) {
+                    if(currentLobby.getCurrentMapNumber() > 1) {
+                        seriesCache.getTeam1Kda().put(c2.getAndIncrement(),
+                                new SeriesCache.Kda(
+                                        seriesCache.getTeam1Kda().get(c2.get()).getKills() + p.getStats().getKills(),
+                                        seriesCache.getTeam1Kda().get(c2.get()).getDeaths() + p.getStats().getDeaths(),
+                                        seriesCache.getTeam1Kda().get(c2.get()).getAssists() + p.getStats().getAssists()));
+                    } else {
+                        seriesCache.getTeam1Kda().put(c2.getAndIncrement(),
+                                new SeriesCache.Kda(
+                                        p.getStats().getKills(),
+                                        p.getStats().getDeaths(),
+                                        p.getStats().getAssists()));
+                    }
+                } else {
+                    if(currentLobby.getCurrentMapNumber() > 1) {
+                        seriesCache.getTeam2Kda().put(c2.getAndIncrement(),
+                                new SeriesCache.Kda(
+                                        seriesCache.getTeam2Kda().get(c2.get()).getKills() + p.getStats().getKills(),
+                                        seriesCache.getTeam2Kda().get(c2.get()).getDeaths() + p.getStats().getDeaths(),
+                                        seriesCache.getTeam2Kda().get(c2.get()).getAssists() + p.getStats().getAssists()));
+                    } else {
+                        seriesCache.getTeam2Kda().put(c2.getAndIncrement(),
+                                new SeriesCache.Kda(
+                                        p.getStats().getKills(),
+                                        p.getStats().getDeaths(),
+                                        p.getStats().getAssists()));
+                    }
+                }
+            }
+        });
+
         switch (currentLobby.getFormat()) {
             case "bo1" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();
                 serverService.stopServer(serverId);
                 deleteFileFromServer(currentLobby, serverId);
-                matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(0)));
+                seriesCache.setStatus("Concluded");
+                matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(),
+                        currentLobby.getTournamentId(),
+                        currentLobby.getTeam1Score(),
+                        currentLobby.getTeam2Score(),
+                        OffsetDateTime.now(),
+                        currentLobby.getMatches().get(0)));
                 lobbyService.deleteLobby(UUID.fromString(lobbyId));
             }
             case "bo3" -> {
@@ -153,6 +268,7 @@ public class WebhooksServiceImpl implements WebhooksService {
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
+                    seriesCache.setStatus("Concluded");
                     lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
                     lobbyService.startMatch(currentLobby);
@@ -165,12 +281,16 @@ public class WebhooksServiceImpl implements WebhooksService {
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
                     serverService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
+                    seriesCache.setStatus("Concluded");
                     lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
                     lobbyService.startMatch(currentLobby);
                 }
             }
         }
+
+        seriesRepository.save(seriesCache);
+
         lobbyService.save(currentLobby);
     }
 

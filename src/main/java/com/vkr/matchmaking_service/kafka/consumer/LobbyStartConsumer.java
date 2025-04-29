@@ -3,6 +3,7 @@ package com.vkr.matchmaking_service.kafka.consumer;
 import com.vkr.matchmaking_service.exception.LobbyNotFoundException;
 import com.vkr.matchmaking_service.kafka.event.lobbyStart.LobbyStartEvent;
 import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
+import com.vkr.matchmaking_service.redis.service.series.SeriesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class LobbyStartConsumer implements KafkaConsumer<LobbyStartEvent> {
 
     private final LobbyService lobbyService;
+    private final SeriesService seriesService;
 
     @Override
     @Transactional
@@ -26,6 +28,7 @@ public class LobbyStartConsumer implements KafkaConsumer<LobbyStartEvent> {
         try {
             log.info("Consumed lobby event: {}", event);
             lobbyService.createLobby(event.getMode(), event.getFormat(), event.getTeam1(), event.getTeam2(), event.getTournamentMatchId(), event.getTournamentId(), event.getAdminId());
+            seriesService.initSeriesCache(lobbyService.getLobbyById(String.valueOf(event.getTournamentMatchId())));
             ack.acknowledge();
         } catch (LobbyNotFoundException e) {
             log.warn("Lobby not found, will retry: {}", e.getMessage());

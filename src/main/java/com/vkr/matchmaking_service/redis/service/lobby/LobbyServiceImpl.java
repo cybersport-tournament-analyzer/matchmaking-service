@@ -16,7 +16,11 @@ import com.vkr.matchmaking_service.exception.*;
 import com.vkr.matchmaking_service.kafka.event.pickbans.PickBansEvent;
 import com.vkr.matchmaking_service.kafka.producer.pickbans.PickBansProducer;
 import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
+import com.vkr.matchmaking_service.redis.cache.match.MatchCache;
+import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
 import com.vkr.matchmaking_service.redis.repository.LobbyRepository;
+import com.vkr.matchmaking_service.redis.repository.MatchRepository;
+import com.vkr.matchmaking_service.redis.repository.SeriesRepository;
 import com.vkr.matchmaking_service.redis.service.ops.RedisLockOperations;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,13 +45,14 @@ public class LobbyServiceImpl implements LobbyService {
     private final MapsConfig mapsConfig;
     private final PickBansProducer pickBansProducer;
 
-
     private final RedisLockOperations redisLockOperations;
     private final LobbyRepository lobbyRepository;
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> timers = new ConcurrentHashMap<>();
+    private final SeriesRepository seriesRepository;
+    private final MatchRepository matchRepository;
 
     @Override
     public List<Lobby> getAllLobbies() {
@@ -323,12 +329,12 @@ public class LobbyServiceImpl implements LobbyService {
         matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
         matchSettingsDto.setPassword("");
 
-        String urlLocal = "https://pz84357p-8081.euw.devtunnels.ms/";
+        String url2 = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://77.221.158.197:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(url2 + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(url2 + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(url2 + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -378,6 +384,22 @@ public class LobbyServiceImpl implements LobbyService {
                         lobby.getTournamentId()
                 )
         );
+
+        MatchCache matchCache = seriesRepository.findByTournamentMatchId(lobby.getId()).getMatches().get(lobby.getCurrentMapNumber());
+        matchCache.setStartTime(LocalDateTime.now());
+        matchCache.setSeriesOrder(lobby.getCurrentMapNumber());
+        if(!lobby.getTeam1Name().equals(team1.getName())) {
+            matchCache.setTeam1Name(team2.getName());
+            matchCache.setTeam2Name(team1.getName());
+        }
+        matchRepository.save(matchCache);
+
+        SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(lobby.getId());
+        seriesCache.setPickBanSession(lobby.getPickBanSession());
+        seriesCache.setStatus("In progress");
+        seriesCache.getMatches().remove(lobby.getCurrentMapNumber());
+        seriesCache.getMatches().add(matchCache);
+        seriesRepository.save(seriesCache);
 
         List<StartMatchPlayerDto> players = new ArrayList<>();
         for (PlayerDto user : lobby.getTeam1().values()) {

@@ -27,31 +27,6 @@ public class LobbyController {
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    /*@PostMapping("/create")
-    @ResponseBody
-    @ResponseStatus(HttpStatus.OK)
-    @Operation(summary = "Create lobbyStart")
-    public ResponseEntity<Map<String, String>> createLobby(@RequestBody CreateLobbyDto data) {
-        String mode = data.getMode();
-        String steamId = data.getSteamId();
-        String format = data.getFormat();
-        String tournamentMatchId = data.getTournamentMatchId();
-        Lobby lobby = lobbyService.createLobby(mode, format, steamId, UUID.fromString(tournamentMatchId));
-        Map<String, String> response = new HashMap<>();
-        response.put("lobbyId", lobby.getId().toString());
-        return ResponseEntity.ok(response);
-//        в
-    }
-
-    @MessageMapping("/join")
-    public void joinLobby(@Payload Map<String, String> data) {
-        UUID lobbyId = UUID.fromString(data.get("lobbyId"));
-        String steamId = data.get("steamId");
-        int slot = Integer.parseInt(data.get("slot"));
-        lobbyService.addPlayer(lobbyId, steamId, slot);
-        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobbyService.getLobbyById(lobbyId.toString()));
-    }*/
-
     @MessageMapping("/ready")
     public void setPlayerReady(@Payload Map<String, String> data) {
         UUID lobbyId = UUID.fromString(data.get("lobbyId"));

@@ -4,6 +4,7 @@ package com.vkr.matchmaking_service.redis.cache.match;
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
 import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
 import com.vkr.matchmaking_service.entity.match.Match;
+import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.annotation.Id;
@@ -38,8 +39,6 @@ public class MatchCache {
 
     private String format;
 
-    private StartMatchPlayerDto admin;
-
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
@@ -48,15 +47,27 @@ public class MatchCache {
     private Map<Integer, PlayerDto> team1 = new HashMap<>();
     private Map<Integer, PlayerDto> team2 = new HashMap<>();
 
+    @Builder.Default
+    private Map<Integer, Kda> team1Kda = new HashMap<>();
+
+    @Builder.Default
+    private Map<Integer, Kda> team2Kda = new HashMap<>();
+
     private int team1Score;
     private int team2Score;
 
     private String team1Name;
     private String team2Name;
 
-    private String team1flag;
-    private String team2flag;
-
     private Match match;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Kda {
+        private int kills;
+        private int deaths;
+        private int assists;
+    }
 
 }

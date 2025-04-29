@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.redis.service.series;
 
+import com.vkr.matchmaking_service.redis.cache.lobby.Lobby;
 import com.vkr.matchmaking_service.redis.cache.match.MatchCache;
 import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
 
@@ -16,4 +17,6 @@ public interface SeriesService {
 
     List<MatchCache> getMatchCachesBySeries(UUID tournamentMatchId);
     MatchCache getMatchCache(UUID tournamentMatchId, UUID matchId);
+
+    void initSeriesCache(Lobby lobby);
 }
