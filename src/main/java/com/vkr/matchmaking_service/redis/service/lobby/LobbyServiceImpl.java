@@ -23,6 +23,7 @@ import com.vkr.matchmaking_service.redis.repository.MatchRepository;
 import com.vkr.matchmaking_service.redis.repository.SeriesRepository;
 import com.vkr.matchmaking_service.redis.service.ops.RedisLockOperations;
 import com.vkr.matchmaking_service.redis.service.series.SeriesService;
+import com.vkr.matchmaking_service.service.server.AsyncServerService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +43,10 @@ public class LobbyServiceImpl implements LobbyService {
 
     private final UserServiceClient userServiceClient;
     private final ServerService serverService;
+    private final SeriesService seriesService;
+    private final AsyncServerService asyncServerService;
+    private final SeriesRepository seriesRepository;
+    private final MatchRepository matchRepository;
     private final MapsConfig mapsConfig;
     private final PickBansProducer pickBansProducer;
 
@@ -52,9 +56,6 @@ public class LobbyServiceImpl implements LobbyService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> timers = new ConcurrentHashMap<>();
-    private final SeriesRepository seriesRepository;
-    private final MatchRepository matchRepository;
-    private final SeriesService seriesService;
 
     @Override
     public List<Lobby> getAllLobbies() {
@@ -63,7 +64,6 @@ public class LobbyServiceImpl implements LobbyService {
         lobbies.forEach(result::add);
         return result;
     }
-
 
     @Override
     public void createLobby(String mode, String format, TeamDto team1, TeamDto team2, UUID tournamentMatchId, UUID tournamentId, String adminId) {
@@ -180,7 +180,7 @@ public class LobbyServiceImpl implements LobbyService {
         if (session.isCompleted()) {
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
             stopTimer(session);
-            startMatch(lobby);
+            startMatchAsync(lobby);
         }
     }
 
@@ -229,7 +229,7 @@ public class LobbyServiceImpl implements LobbyService {
 
         if (session.isCompleted()) {
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
-            startMatch(lobby);
+            startMatchAsync(lobby);
         } else {
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, lobby);
             startTimer(session);
@@ -334,9 +334,9 @@ public class LobbyServiceImpl implements LobbyService {
         String url2 = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://77.221.158.197:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(url2 + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(url2 + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(url2 + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -432,6 +432,176 @@ public class LobbyServiceImpl implements LobbyService {
         Match currLobbyMatch = serverService.startMatch(matchStartingDto);
         lobby.getMatches().add(currLobbyMatch);
         save(lobby);
+    }
+
+    @Override
+    public void startMatchAsync(Lobby lobby) throws IOException, InterruptedException {
+        String mode = lobby.getMode();
+        int currentMapNumber = lobby.getCurrentMapNumber();
+
+        CompletableFuture<String> serverIdFuture;
+
+        if (currentMapNumber == 0) {
+            serverIdFuture = asyncServerService.getAvailableServer().thenCompose(server -> {
+                if (mode.equals("1vs1")) {
+                    try {
+                        return asyncServerService.uploadFileToServer(server.getId(), "cfg/live_server.cfg", Path.of("live_server.cfg"))
+                                .thenApply(v -> server.getId());
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    return CompletableFuture.completedFuture(server.getId());
+                }
+            });
+        } else {
+            serverIdFuture = CompletableFuture.completedFuture(lobby.getMatches().get(0).getGame_server_id());
+        }
+
+        serverIdFuture.thenCompose(serverId -> {
+            ServerSettingsDto settings = new ServerSettingsDto(serverId, new ServerSettingsDto.Cs2Settings());
+
+            MatchStartingTeamDto team1 = new MatchStartingTeamDto();
+            MatchStartingTeamDto team2 = new MatchStartingTeamDto();
+
+            String pickedMap = mapsConfig.getMapsByMode(mode).get(lobby.getPickBanSession().getPickedMaps().get(currentMapNumber));
+
+            switch (mode) {
+                case "1vs1", "2vs2" -> {
+                    settings.getCs2_settings().setGame_mode(mode.equals("1vs1") ? "custom" : "wingman");
+                    if (pickedMap.startsWith("de_")) {
+                        settings.getCs2_settings().setMapgroup_start_map(pickedMap);
+                    } else {
+                        settings.getCs2_settings().setMaps_source("workshop_single_map");
+                        settings.getCs2_settings().setWorkshop_single_map_id(pickedMap);
+                    }
+                }
+                case "5vs5" -> {
+                    settings.getCs2_settings().setGame_mode("competitive");
+                    settings.getCs2_settings().setMapgroup_start_map(pickedMap);
+                }
+            }
+
+            CompletableFuture<Void> updateServerFuture = null;
+            try {
+                updateServerFuture = (currentMapNumber == 0)
+                        ? asyncServerService.updateServer(settings)
+                        : CompletableFuture.completedFuture(null);
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return updateServerFuture.thenCompose(v -> {
+                MatchStartingDto matchStartingDto = new MatchStartingDto();
+                matchStartingDto.setGame_server_id(serverId);
+
+                MatchSettingsDto matchSettingsDto = new MatchSettingsDto();
+                String map = pickedMap.startsWith("de_") ? pickedMap : "workshop/" + pickedMap;
+                matchSettingsDto.setMap(map);
+                matchSettingsDto.setTeam_size(lobby.maxPlayersPerTeam());
+                matchSettingsDto.setPassword("");
+                matchSettingsDto.setMatch_begin_countdown(15);
+                matchStartingDto.setSettings(matchSettingsDto);
+
+                WebhooksDto webhooksDto = new WebhooksDto();
+                String baseUrl = "http://77.221.158.197:8081/";
+                webhooksDto.setEvent_url(baseUrl + "webhooks/event/" + lobby.getId());
+                webhooksDto.setMatch_end_url(baseUrl + "webhooks/match-end/" + lobby.getId());
+                webhooksDto.setRound_end_url(baseUrl + "webhooks/round-end/" + lobby.getId());
+                webhooksDto.setEnabled_events(List.of("*"));
+                matchStartingDto.setWebhooks(webhooksDto);
+
+                SideSelection sideSelection = lobby.getPickBanSession().getSideSelections().get(currentMapNumber);
+                String chosenTeam = sideSelection.getTeam();
+                String team1Side, team2Side;
+
+                if (chosenTeam.equals(lobby.getTeam1Name())) {
+                    if (sideSelection.getSide().equals("CT")) {
+                        team1Side = "team1";
+                        team2Side = "team2";
+                        team1.setName(lobby.getTeam1Name());
+                        team1.setFlag(lobby.getTeam1flag());
+                        team2.setName(lobby.getTeam2Name());
+                        team2.setFlag(lobby.getTeam2flag());
+                    } else {
+                        team1Side = "team2";
+                        team2Side = "team1";
+                        team1.setName(lobby.getTeam2Name());
+                        team1.setFlag(lobby.getTeam2flag());
+                        team2.setName(lobby.getTeam1Name());
+                        team2.setFlag(lobby.getTeam1flag());
+                    }
+                } else {
+                    if (sideSelection.getSide().equals("T")) {
+                        team1Side = "team1";
+                        team2Side = "team2";
+                        team1.setName(lobby.getTeam1Name());
+                        team1.setFlag(lobby.getTeam1flag());
+                        team2.setName(lobby.getTeam2Name());
+                        team2.setFlag(lobby.getTeam2flag());
+                    } else {
+                        team1Side = "team2";
+                        team2Side = "team1";
+                        team1.setName(lobby.getTeam2Name());
+                        team1.setFlag(lobby.getTeam2flag());
+                        team2.setName(lobby.getTeam1Name());
+                        team2.setFlag(lobby.getTeam1flag());
+                    }
+                }
+
+                pickBansProducer.produce(new PickBansEvent(
+                        lobby.getPickBanSession().getActionsLogs(),
+                        team1.getName(),
+                        team2.getName(),
+                        lobby.getTournamentId()
+                ));
+
+                MatchCache matchCache = seriesService.initNextMatchCache(lobby);
+                if (!lobby.getTeam1Name().equals(team1.getName())) {
+                    matchCache.setTeam1Name(team2.getName());
+                    matchCache.setTeam2Name(team1.getName());
+                }
+                matchRepository.save(matchCache);
+
+                SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(lobby.getId());
+                seriesCache.setPickBanSession(lobby.getPickBanSession());
+                seriesCache.setStatus("In progress");
+                seriesCache.getMatches().put(currentMapNumber, matchCache);
+                seriesRepository.save(seriesCache);
+
+                List<StartMatchPlayerDto> players = new ArrayList<>();
+                for (PlayerDto user : lobby.getTeam1().values()) {
+                    UserDto userDto = userServiceClient.getUserBySteamId(user.getPlayerSteamId());
+                    StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
+                    playerDto.setTeam(team1Side);
+                    playerDto.setSteam_id_64(userDto.getSteamId());
+                    playerDto.setNickname_override(userDto.getSteamUsername());
+                    players.add(playerDto);
+                }
+                for (PlayerDto user : lobby.getTeam2().values()) {
+                    UserDto userDto = userServiceClient.getUserBySteamId(user.getPlayerSteamId());
+                    StartMatchPlayerDto playerDto = new StartMatchPlayerDto();
+                    playerDto.setTeam(team2Side);
+                    playerDto.setSteam_id_64(userDto.getSteamId());
+                    playerDto.setNickname_override(userDto.getSteamUsername());
+                    players.add(playerDto);
+                }
+                players.add(lobby.getAdmin());
+
+                matchStartingDto.setPlayers(players);
+                matchStartingDto.setTeam1(team1);
+                matchStartingDto.setTeam2(team2);
+
+                try {
+                    return asyncServerService.startMatch(matchStartingDto).thenAccept(match -> {
+                        lobby.getMatches().add(match);
+                        save(lobby);
+                    });
+                } catch (IOException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }).exceptionally(ex -> null);
     }
 
     private void updateSessionState(PickBanSession session, PickBanAction action, Lobby lobby) {

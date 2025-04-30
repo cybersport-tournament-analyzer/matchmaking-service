@@ -15,6 +15,7 @@ import com.vkr.matchmaking_service.redis.repository.MatchRepository;
 import com.vkr.matchmaking_service.redis.repository.SeriesRepository;
 import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.redis.service.series.SeriesService;
+import com.vkr.matchmaking_service.service.server.AsyncServerService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import com.vkr.matchmaking_service.utils.ConsoleLogParser;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -37,7 +39,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     private final SimpMessagingTemplate messagingTemplate;
     private final LobbyService lobbyService;
     private final ServerService serverService;
-
+    private final AsyncServerService asyncServerService;
 
     private final MatchEndProducer matchEndProducer;
     private final MatchStartProducer matchStartProducer;
@@ -46,7 +48,6 @@ public class WebhooksServiceImpl implements WebhooksService {
 
     private final SeriesRepository seriesRepository;
     private final MatchRepository matchRepository;
-    private final SeriesService seriesService;
 
     @Override
     public void handleEvent(Match match, String lobbyId) throws IOException, InterruptedException {
@@ -122,7 +123,7 @@ public class WebhooksServiceImpl implements WebhooksService {
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
-            currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
+            currentLobby.setLink("steam://rungameid/730//+" + asyncServerService.getServerIp(match.getGame_server_id()));
             messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
         }
         lobbyService.save(currentLobby);
@@ -248,13 +249,13 @@ public class WebhooksServiceImpl implements WebhooksService {
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(currentLobby.getMatches().size() - 1)));
                 if (currentLobby.getTeam1Score() == 2 || currentLobby.getTeam2Score() == 2) {
-                    serverService.stopServer(serverId);
+                    asyncServerService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
                     seriesCache.setStatus("Concluded");
                     seriesRepository.save(seriesCache);
                     lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
-                    lobbyService.startMatch(currentLobby);
+                    lobbyService.startMatchAsync(currentLobby);
                 }
             }
             case "bo5" -> {
@@ -262,13 +263,13 @@ public class WebhooksServiceImpl implements WebhooksService {
                 currentLobby.setCurrentMapNumber(currentLobby.getCurrentMapNumber() + 1);
                 matchEndProducer.produce(new MatchEndEvent(currentLobby.getId(), currentLobby.getTournamentId(), currentLobby.getTeam1Score(), currentLobby.getTeam2Score(), OffsetDateTime.now(), currentLobby.getMatches().get(currentLobby.getMatches().size() - 1)));
                 if (currentLobby.getTeam1Score() == 3 || currentLobby.getTeam2Score() == 3) {
-                    serverService.stopServer(serverId);
+                    asyncServerService.stopServer(serverId);
                     deleteFileFromServer(currentLobby, serverId);
                     seriesCache.setStatus("Concluded");
                     seriesRepository.save(seriesCache);
                     lobbyService.deleteLobby(UUID.fromString(lobbyId));
                 } else {
-                    lobbyService.startMatch(currentLobby);
+                    lobbyService.startMatchAsync(currentLobby);
                 }
             }
         }

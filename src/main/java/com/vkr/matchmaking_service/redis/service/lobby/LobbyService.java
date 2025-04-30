@@ -42,6 +42,8 @@ public interface LobbyService {
 
     void startMatch(Lobby lobby) throws IOException, InterruptedException;
 
+    void startMatchAsync(Lobby lobby) throws IOException, InterruptedException;
+
     void startTimer(PickBanSession session);
 
     void stopTimer(PickBanSession session);
