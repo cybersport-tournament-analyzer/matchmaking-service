@@ -1,5 +1,6 @@
 package com.vkr.matchmaking_service.service.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vkr.matchmaking_service.dto.match.MatchPlayerDto;
 import com.vkr.matchmaking_service.dto.match.MatchStartingDto;
@@ -28,9 +29,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executors;
 
 @Service
 @Slf4j
@@ -129,6 +134,7 @@ public class ServerServiceImpl implements ServerService {
         log.info("CS2 server with id {} is stopped", serverId);
 
     }
+
 
     @Override
     public void uploadFileToServer(String serverId, String filePath, Path localFilePath) throws IOException, InterruptedException {

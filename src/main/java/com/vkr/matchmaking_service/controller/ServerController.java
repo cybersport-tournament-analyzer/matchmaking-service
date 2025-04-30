@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 
 @RestController
@@ -121,7 +122,7 @@ public class ServerController {
     @GetMapping("/console/{serverId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Get server console by id")
-    public List<String> getServerMetrics(@PathVariable String serverId, @RequestParam int maxLines) throws IOException, InterruptedException {
+    public List<String> getConsoleLogs(@PathVariable String serverId, @RequestParam int maxLines) throws IOException, InterruptedException {
         return serverService.getConsoleLogs(serverId, maxLines);
     }
 

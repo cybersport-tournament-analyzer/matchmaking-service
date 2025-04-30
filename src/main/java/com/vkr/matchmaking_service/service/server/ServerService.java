@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface ServerService {
 
@@ -45,4 +46,5 @@ public interface ServerService {
     ServerMetricsDto getServerMetrics(String serverId) throws IOException, InterruptedException;
 
     List<String> getConsoleLogs(String serverId, int maxLines) throws IOException, InterruptedException;
+
 }

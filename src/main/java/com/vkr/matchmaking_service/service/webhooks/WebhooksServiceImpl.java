@@ -163,7 +163,6 @@ public class WebhooksServiceImpl implements WebhooksService {
                         p.getStats().getDeaths(),
                         p.getStats().getAssists()
                 );
-
                 if (c.get() <= currentLobby.maxPlayersPerTeam()) {
                     matchCache.getTeam1Kda().put(c.getAndIncrement(), kda);
                 } else {
@@ -208,21 +207,21 @@ public class WebhooksServiceImpl implements WebhooksService {
                         p.getStats().getAssists()
                 );
                 if (c2.get() <= currentLobby.maxPlayersPerTeam()) {
-                    if (currentLobby.getCurrentMapNumber() > 1) {
+                    if (currentLobby.getCurrentMapNumber() == 0) {
+                        seriesCache.getTeam1Kda().put(c2.getAndIncrement(), kda);
+                    } else {
                         kda.setKills(seriesCache.getTeam1Kda().get(c2.get()).getKills() + p.getStats().getKills());
                         kda.setAssists(seriesCache.getTeam1Kda().get(c2.get()).getAssists() + p.getStats().getAssists());
                         kda.setDeaths(seriesCache.getTeam1Kda().get(c2.get()).getDeaths() + p.getStats().getDeaths());
                         seriesCache.getTeam1Kda().put(c2.getAndIncrement(), kda);
-                    } else {
-                        seriesCache.getTeam1Kda().put(c2.getAndIncrement(), kda);
                     }
                 } else {
-                    if (currentLobby.getCurrentMapNumber() > 1) {
+                    if (currentLobby.getCurrentMapNumber() == 0) {
+                        seriesCache.getTeam2Kda().put(c2.getAndIncrement(), kda);
+                    } else {
                         kda.setKills(seriesCache.getTeam2Kda().get(c2.get()).getKills() + p.getStats().getKills());
                         kda.setAssists(seriesCache.getTeam2Kda().get(c2.get()).getAssists() + p.getStats().getAssists());
                         kda.setDeaths(seriesCache.getTeam2Kda().get(c2.get()).getDeaths() + p.getStats().getDeaths());
-                        seriesCache.getTeam2Kda().put(c2.getAndIncrement(), kda);
-                    } else {
                         seriesCache.getTeam2Kda().put(c2.getAndIncrement(), kda);
                     }
                 }

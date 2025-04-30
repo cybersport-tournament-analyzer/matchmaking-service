@@ -2,14 +2,12 @@ package com.vkr.matchmaking_service.redis.cache.lobby;
 
 import com.vkr.matchmaking_service.dto.match.StartMatchPlayerDto;
 import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
-import com.vkr.matchmaking_service.dto.user.UserDto;
 import com.vkr.matchmaking_service.entity.match.Match;
 import com.vkr.matchmaking_service.entity.pickbans.PickBanSession;
 import lombok.*;
 import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
-import org.springframework.data.redis.core.index.Indexed;
 
 import java.io.Serializable;
 import java.util.*;
@@ -20,7 +18,7 @@ import java.util.*;
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-@RedisHash(value = "lobby", timeToLive = 3600)
+@RedisHash(value = "lobby", timeToLive = 10000)
 @Jacksonized
 public class Lobby implements Serializable {
 

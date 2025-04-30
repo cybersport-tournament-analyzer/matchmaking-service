@@ -60,6 +60,7 @@ dependencies {
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 	implementation("jakarta.persistence:jakarta.persistence-api:3.1.0")
+	implementation("org.asynchttpclient:async-http-client:2.12.3")
 	/**
 	 * Database
 	 */
