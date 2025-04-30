@@ -22,6 +22,7 @@ import com.vkr.matchmaking_service.redis.repository.LobbyRepository;
 import com.vkr.matchmaking_service.redis.repository.MatchRepository;
 import com.vkr.matchmaking_service.redis.repository.SeriesRepository;
 import com.vkr.matchmaking_service.redis.service.ops.RedisLockOperations;
+import com.vkr.matchmaking_service.redis.service.series.SeriesService;
 import com.vkr.matchmaking_service.service.server.ServerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class LobbyServiceImpl implements LobbyService {
     private final Map<String, ScheduledFuture<?>> timers = new ConcurrentHashMap<>();
     private final SeriesRepository seriesRepository;
     private final MatchRepository matchRepository;
+    private final SeriesService seriesService;
 
     @Override
     public List<Lobby> getAllLobbies() {
@@ -77,7 +79,7 @@ public class LobbyServiceImpl implements LobbyService {
         save(lobby);
 
         AtomicInteger counter = new AtomicInteger(1);
-        
+
         team1.getPlayers().forEach(player -> {
                     player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
                     addPlayer(lobby.getId(), player, counter.getAndIncrement());
@@ -332,9 +334,9 @@ public class LobbyServiceImpl implements LobbyService {
         String url2 = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://77.221.158.197:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(url2 + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(url2 + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(url2 + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
@@ -385,10 +387,11 @@ public class LobbyServiceImpl implements LobbyService {
                 )
         );
 
-        MatchCache matchCache = seriesRepository.findByTournamentMatchId(lobby.getId()).getMatches().get(lobby.getCurrentMapNumber());
-        matchCache.setStartTime(LocalDateTime.now());
-        matchCache.setSeriesOrder(lobby.getCurrentMapNumber());
-        if(!lobby.getTeam1Name().equals(team1.getName())) {
+        System.out.println(lobby.getCurrentMapNumber());
+
+        MatchCache matchCache = seriesService.initNextMatchCache(lobby);
+
+        if (!lobby.getTeam1Name().equals(team1.getName())) {
             matchCache.setTeam1Name(team2.getName());
             matchCache.setTeam2Name(team1.getName());
         }
@@ -397,8 +400,8 @@ public class LobbyServiceImpl implements LobbyService {
         SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(lobby.getId());
         seriesCache.setPickBanSession(lobby.getPickBanSession());
         seriesCache.setStatus("In progress");
-        seriesCache.getMatches().remove(lobby.getCurrentMapNumber());
-        seriesCache.getMatches().add(matchCache);
+        System.out.println(seriesCache.getMatches().get(lobby.getCurrentMapNumber()));
+        seriesCache.getMatches().put(lobby.getCurrentMapNumber(), matchCache);
         seriesRepository.save(seriesCache);
 
         List<StartMatchPlayerDto> players = new ArrayList<>();

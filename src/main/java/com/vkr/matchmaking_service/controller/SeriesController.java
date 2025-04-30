@@ -5,12 +5,10 @@ import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
 import com.vkr.matchmaking_service.redis.service.lobby.LobbyService;
 import com.vkr.matchmaking_service.redis.service.series.SeriesService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -27,12 +25,32 @@ public class SeriesController {
     }
 
     @GetMapping("/{seriesId}/matches")
-    public List<MatchCache> getSeriesMatches(@PathVariable String seriesId) {
+    public Map<Integer, MatchCache> getSeriesMatches(@PathVariable String seriesId) {
         return seriesService.getMatchCachesBySeries(UUID.fromString(seriesId));
     }
 
-    @GetMapping("/{seriesId}/matches/{matchId}")
-    public MatchCache getSeriesMatch(@PathVariable String seriesId, @PathVariable String matchId) {
-        return seriesService.getMatchCache(UUID.fromString(seriesId), UUID.fromString(matchId));
+    @GetMapping("/{seriesId}/matches/{orderSeries}")
+    public MatchCache getSeriesMatch(@PathVariable String seriesId, @PathVariable int orderSeries) {
+        return seriesService.getMatchCache(UUID.fromString(seriesId), orderSeries);
+    }
+
+    @DeleteMapping("/delete")
+    public void deleteSeries() {
+        seriesService.deleteAllSeries();
+    }
+
+    @DeleteMapping("/delete/{seriesId}")
+    public void deleteSeriesMatches(@PathVariable String seriesId) {
+        seriesService.deleteAllMatches(UUID.fromString(seriesId));
+    }
+
+    @GetMapping
+    public List<SeriesCache> getAllSeries() {
+        return seriesService.getAll();
+    }
+
+    @GetMapping("/tournament/{tournamentId}")
+    public List<SeriesCache> getAllTournament(@PathVariable String tournamentId) {
+        return seriesService.getAllByTournamentId(UUID.fromString(tournamentId));
     }
 }

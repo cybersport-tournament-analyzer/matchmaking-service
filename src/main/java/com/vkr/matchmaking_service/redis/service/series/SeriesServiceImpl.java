@@ -10,7 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -36,70 +39,36 @@ public class SeriesServiceImpl implements SeriesService {
     }
 
     @Override
-    public List<MatchCache> getMatchCachesBySeries(UUID tournamentMatchId) {
-        return matchRepository.findAllByTournamentMatchId(tournamentMatchId);
+    public Map<Integer, MatchCache> getMatchCachesBySeries(UUID tournamentMatchId) {
+        return seriesRepository.findByTournamentMatchId(tournamentMatchId).getMatches();
     }
 
     @Override
-    public MatchCache getMatchCache(UUID tournamentMatchId, UUID matchId) {
-        return matchRepository.findByIdAndTournamentMatchId(matchId, tournamentMatchId);
+    public MatchCache getMatchCache(UUID tournamentMatchId, int seriesOrder) {
+        return matchRepository.findByTournamentMatchIdAndSeriesOrder(tournamentMatchId, seriesOrder);
     }
 
     @Override
     public void initSeriesCache(Lobby lobby) {
 
-        Map<Integer, MatchCache.Kda> team1Kda1 = new HashMap<>();
-        Map<Integer, MatchCache.Kda> team2Kda2 = new HashMap<>();
-
-        for(int i = 1; i <= lobby.maxPlayersPerTeam() * 2; ++i) {
-            if(i <= lobby.maxPlayersPerTeam()) {
-                System.out.println(i);
-                team1Kda1.put(i, new MatchCache.Kda(0,0,0));
-            } else {
-                System.out.println(i);
-                team2Kda2.put(i, new MatchCache.Kda(0,0,0));
-            }
-        }
-
-        MatchCache firstMatch = MatchCache.builder()
-                .id(UUID.randomUUID())
-                .tournamentMatchId(lobby.getId())
-                .tournamentId(lobby.getTournamentId())
-                .match(null)
-                .mode(lobby.getMode())
-                .startTime(null)
-                .endTime(null)
-                .duration(null)
-                .format(lobby.getFormat())
-                .seriesOrder(0)
-                .team1(lobby.getTeam1())
-                .team2(lobby.getTeam2())
-                .team1Name(lobby.getTeam1Name())
-                .team1Score(lobby.getTeam1Score())
-                .team2Name(lobby.getTeam2Name())
-                .team2Score(lobby.getTeam2Score())
-                .team1Kda(team1Kda1)
-                .team2Kda(team2Kda2)
-                .build();
-
-        matchRepository.save(firstMatch);
-
         Map<Integer, SeriesCache.Kda> team1Kda = new HashMap<>();
         Map<Integer, SeriesCache.Kda> team2Kda = new HashMap<>();
 
+
         for(int i = 1; i <= lobby.maxPlayersPerTeam() * 2; ++i) {
             if(i <= lobby.maxPlayersPerTeam()) {
-                System.out.println(i);
                 team1Kda.put(i, new SeriesCache.Kda(0,0,0));
             } else {
-                System.out.println(i);
                 team2Kda.put(i, new SeriesCache.Kda(0,0,0));
             }
         }
 
+        Map<Integer, MatchCache> matches = new HashMap<>();
+
+
         SeriesCache seriesCache = SeriesCache.builder()
                 .tournamentMatchId(lobby.getId())
-                .matches(List.of(firstMatch))
+                .matches(matches)
                 .dateTime(LocalDateTime.now())
                 .status("Waiting for start")
                 .pickBanSession(null)
@@ -115,5 +84,62 @@ public class SeriesServiceImpl implements SeriesService {
                 .build();
 
         seriesRepository.save(seriesCache);
+    }
+
+    @Override
+    public MatchCache initNextMatchCache(Lobby lobby) {
+        Map<Integer, MatchCache.Kda> team1Kda1 = new HashMap<>();
+        Map<Integer, MatchCache.Kda> team2Kda2 = new HashMap<>();
+
+        for(int i = 1; i <= lobby.maxPlayersPerTeam() * 2; ++i) {
+            if(i <= lobby.maxPlayersPerTeam()) {
+                team1Kda1.put(i, new MatchCache.Kda(0,0,0));
+            } else {
+                team2Kda2.put(i, new MatchCache.Kda(0,0,0));
+            }
+        }
+
+        String matchId = lobby.getId() + ":" + lobby.getCurrentMapNumber();
+
+        MatchCache matchCache = MatchCache.builder()
+                .id(matchId)
+                .tournamentMatchId(lobby.getId())
+                .tournamentId(lobby.getTournamentId())
+                .match(null)
+                .mode(lobby.getMode())
+                .startTime(LocalDateTime.now())
+                .endTime(null)
+                .duration(null)
+                .format(lobby.getFormat())
+                .seriesOrder(lobby.getCurrentMapNumber())
+                .team1(lobby.getTeam1())
+                .team2(lobby.getTeam2())
+                .team1Name(lobby.getTeam1Name())
+                .team1Score(0)
+                .team2Name(lobby.getTeam2Name())
+                .team2Score(0)
+                .team1Kda(team1Kda1)
+                .team2Kda(team2Kda2)
+                .build();
+
+        matchRepository.save(matchCache);
+
+        SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(lobby.getId());
+
+        seriesCache.getMatches().put(matchCache.getSeriesOrder(), matchCache);
+
+        seriesRepository.save(seriesCache);
+
+       return matchCache;
+    }
+
+    @Override
+    public void deleteAllSeries() {
+        seriesRepository.deleteAll();
+    }
+
+    @Override
+    public void deleteAllMatches(UUID seriesId) {
+        matchRepository.deleteAllByTournamentMatchId(seriesId);
     }
 }

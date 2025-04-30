@@ -8,7 +8,9 @@ import lombok.*;
 import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.index.Indexed;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -20,11 +22,12 @@ import java.util.*;
 @NoArgsConstructor
 @RedisHash(value = "series")
 @Jacksonized
-public class SeriesCache {
+public class SeriesCache implements Serializable {
 
     @Id
     private UUID tournamentMatchId;
 
+    @Indexed
     private UUID tournamentId;
 
     private PickBanSession pickBanSession;
@@ -48,7 +51,8 @@ public class SeriesCache {
     private String team1Name;
     private String team2Name;
 
-    private List<MatchCache> matches = new ArrayList<>();
+    @Builder.Default
+    private Map<Integer, MatchCache> matches = new HashMap<>();
 
     @Data
     @AllArgsConstructor

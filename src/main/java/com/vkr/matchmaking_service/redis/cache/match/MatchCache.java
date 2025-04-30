@@ -9,7 +9,9 @@ import lombok.*;
 import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.index.Indexed;
 
+import java.io.Serializable;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -24,15 +26,17 @@ import java.util.UUID;
 @NoArgsConstructor
 @RedisHash(value = "matches")
 @Jacksonized
-public class MatchCache {
+public class MatchCache implements Serializable {
 
     @Id
-    private UUID id;
+    private String id;
 
     private UUID tournamentId;
 
+    @Indexed
     private UUID tournamentMatchId;
 
+    @Indexed
     private int seriesOrder;
 
     private String mode;

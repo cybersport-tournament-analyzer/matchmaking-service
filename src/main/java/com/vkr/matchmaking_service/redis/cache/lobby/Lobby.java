@@ -11,6 +11,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 
+import java.io.Serializable;
 import java.util.*;
 
 @Getter
@@ -21,7 +22,7 @@ import java.util.*;
 @NoArgsConstructor
 @RedisHash(value = "lobby", timeToLive = 3600)
 @Jacksonized
-public class Lobby {
+public class Lobby implements Serializable {
 
     @Id
     private UUID id;

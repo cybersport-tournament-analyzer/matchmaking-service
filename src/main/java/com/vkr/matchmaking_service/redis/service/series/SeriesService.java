@@ -5,6 +5,7 @@ import com.vkr.matchmaking_service.redis.cache.match.MatchCache;
 import com.vkr.matchmaking_service.redis.cache.series.SeriesCache;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface SeriesService {
@@ -15,8 +16,15 @@ public interface SeriesService {
 
     List<SeriesCache> getAllByTournamentId(UUID tournamentId);
 
-    List<MatchCache> getMatchCachesBySeries(UUID tournamentMatchId);
-    MatchCache getMatchCache(UUID tournamentMatchId, UUID matchId);
+    Map<Integer, MatchCache> getMatchCachesBySeries(UUID tournamentMatchId);
+
+    MatchCache getMatchCache(UUID tournamentMatchId, int orderSeries);
 
     void initSeriesCache(Lobby lobby);
+
+    MatchCache initNextMatchCache(Lobby lobby);
+
+    void deleteAllSeries();
+
+    void deleteAllMatches(UUID seriesId);
 }
