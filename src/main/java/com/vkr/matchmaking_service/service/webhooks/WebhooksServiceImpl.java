@@ -123,10 +123,10 @@ public class WebhooksServiceImpl implements WebhooksService {
         currentLobby.getMatches().remove(currentMatch);
         currentLobby.getMatches().add(match);
         if (match.getEvents().get(match.getEvents().size() - 1).getEvent().equals("server_ready_for_players")) {
-            currentLobby.setLink("steam://rungameid/730//+" + asyncServerService.getServerIp(match.getGame_server_id()));
-            messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
+            currentLobby.setLink("steam://rungameid/730//+" + serverService.getServerIp(match.getGame_server_id()));
         }
         lobbyService.save(currentLobby);
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, currentLobby);
     }
 
     private void updateEndedMatch(Match match, String lobbyId) throws IOException, InterruptedException {
