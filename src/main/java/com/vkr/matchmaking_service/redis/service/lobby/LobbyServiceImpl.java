@@ -334,9 +334,9 @@ public class LobbyServiceImpl implements LobbyService {
         String url2 = "https://pz84357p-8081.euw.devtunnels.ms/";
         String urlRemote = "http://77.221.158.197:8081/";
         WebhooksDto webhooksDto = new WebhooksDto();
-        webhooksDto.setEvent_url(url2 + "webhooks/event/" + lobby.getId());
-        webhooksDto.setMatch_end_url(url2 + "webhooks/match-end/" + lobby.getId());
-        webhooksDto.setRound_end_url(url2 + "webhooks/round-end/" + lobby.getId());
+        webhooksDto.setEvent_url(urlRemote + "webhooks/event/" + lobby.getId());
+        webhooksDto.setMatch_end_url(urlRemote + "webhooks/match-end/" + lobby.getId());
+        webhooksDto.setRound_end_url(urlRemote + "webhooks/round-end/" + lobby.getId());
         webhooksDto.setEnabled_events(List.of("*"));
         matchStartingDto.setWebhooks(webhooksDto);
 
