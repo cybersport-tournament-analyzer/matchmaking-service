@@ -14,7 +14,7 @@ import java.util.Map;
 @Component
 public class PickBansProducer extends AbstractKafkaProducer<PickBansEvent> {
 
-    @Value("${spring.data.kafka.topics.topic-settings.round-end.name}")
+    @Value("${spring.data.kafka.topics.topic-settings.pick-bans.name}")
     private String channelTopic;
 
     public PickBansProducer(KafkaTemplate<String, Object> kafkaTemplate,

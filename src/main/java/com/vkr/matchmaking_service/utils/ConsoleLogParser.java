@@ -33,7 +33,6 @@ public class ConsoleLogParser {
 
     public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match, UUID tournamentMatchId, UUID tournamentId) {
         int isFinalRound = isFinal(allLogLines);
-        System.out.println(isFinalRound);
         List<String> logLines = extractRelevantLines(allLogLines);
         RoundStatsDto statsDto = extractRoundStats(logLines, match.getRounds_played());
 
