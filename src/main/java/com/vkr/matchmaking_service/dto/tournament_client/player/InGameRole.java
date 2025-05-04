@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum InGameRole {
     LURKER("Lurker"),
-    ENTRY_FRAGGER("Entry Fragger"),
     SUPPORT("Support"),
     IGL("In Game Leader"),
     RIFFLER("Riffler"),
