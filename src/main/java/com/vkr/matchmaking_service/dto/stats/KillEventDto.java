@@ -12,6 +12,9 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 @Builder
 public class KillEventDto {
+
+    private String timestamp;
+
     private String killerName;
     private String killerSteamId;
     private String killerTeam;

@@ -25,7 +25,7 @@ public class ConsoleLogParser {
     private static final Pattern SFUI_NOTICE_PATTERN =
             Pattern.compile("Team \"(.*?)\" triggered \"(SFUI_Notice_.*?)\" \\(CT \"(\\d+)\"\\) \\(T \"(\\d+)\"\\)");
     private static final Pattern KILL_EVENT_PATTERN = Pattern.compile(
-            "\"(.+?)<\\d+><(\\[U:1:\\d+])><(.*?)>\" \\[.*?\\] killed " +
+            "^(\\w+\\s+\\d+\\s+(\\d{2}:\\d{2}:\\d{2})):.*?\"(.+?)<\\d+><(\\[U:1:\\d+])><(.*?)>\" \\[.*?\\] killed " +
                     "\"(.+?)<\\d+><(\\[U:1:\\d+])><(.*?)>\" \\[.*?\\] with \"(\\w+)\"(?: \\((.*?)\\))?"
     );
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -170,31 +170,38 @@ public class ConsoleLogParser {
         for (String line : logLines) {
             Matcher m = KILL_EVENT_PATTERN.matcher(line);
             if (m.find()) {
-                String killerAccountId = m.group(2);
-                killerAccountId = killerAccountId.replace("[U:1:", "");
-                killerAccountId = killerAccountId.replace("]", "");
+                System.out.println(line);
 
-                String victimAccountId = m.group(5);
-                victimAccountId = victimAccountId.replace("[U:1:", "");
-                victimAccountId = victimAccountId.replace("]", "");
+                String timestamp = m.group(2);
+                String killerName = m.group(3);
+                String killerAccountId = m.group(4).replace("[U:1:", "").replace("]", "");
+                String killerTeam = m.group(5);
+
+                String victimName = m.group(6);
+                String victimAccountId = m.group(7).replace("[U:1:", "").replace("]", "");
+                String victimTeam = m.group(8);
+
+                String weapon = m.group(9);
+                String extras = m.group(10);
 
                 String killerSteamId = replaces.get(killerAccountId);
-                System.out.println(killerSteamId);
                 String victimSteamId = replaces.get(victimAccountId);
+                System.out.println(killerSteamId);
                 System.out.println(victimSteamId);
 
                 events.add(KillEventDto.builder()
-                        .killerName(m.group(1))
+                        .timestamp(timestamp)
+                        .killerName(killerName)
                         .killerSteamId(killerSteamId)
-                        .killerTeam(m.group(3))
-                        .victimName(m.group(4))
+                        .killerTeam(killerTeam)
+                        .victimName(victimName)
                         .victimSteamId(victimSteamId)
-                        .victimTeam(m.group(6))
-                        .weapon(m.group(7))
-                        .headshot(m.group(8) != null && m.group(8).contains("headshot"))
-                        .penetrated(m.group(8) != null && m.group(8).contains("penetrated"))
-                        .noscope(m.group(8) != null && m.group(8).contains("noscope"))
-                        .smoke(m.group(8) != null && m.group(8).contains("throughsmoke"))
+                        .victimTeam(victimTeam)
+                        .weapon(weapon)
+                        .headshot(extras != null && extras.contains("headshot"))
+                        .penetrated(extras != null && extras.contains("penetrated"))
+                        .noscope(extras != null && extras.contains("noscope"))
+                        .smoke(extras != null && extras.contains("throughsmoke"))
                         .build());
             }
         }
