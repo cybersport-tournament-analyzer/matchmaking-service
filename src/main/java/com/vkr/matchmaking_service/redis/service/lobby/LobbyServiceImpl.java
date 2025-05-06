@@ -4,6 +4,7 @@ import com.vkr.matchmaking_service.client.UserServiceClient;
 import com.vkr.matchmaking_service.config.maps.MapsConfig;
 import com.vkr.matchmaking_service.dto.match.*;
 import com.vkr.matchmaking_service.dto.server.ServerSettingsDto;
+import com.vkr.matchmaking_service.dto.tournament_client.player.InGameRole;
 import com.vkr.matchmaking_service.dto.tournament_client.player.PlayerDto;
 import com.vkr.matchmaking_service.dto.tournament_client.team.TeamDto;
 import com.vkr.matchmaking_service.dto.user.UserDto;
@@ -82,12 +83,12 @@ public class LobbyServiceImpl implements LobbyService {
 
         team1.getPlayers().forEach(player -> {
                     player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
-                    addPlayer(lobby.getId(), player, counter.getAndIncrement());
+                    if(counter.get() <= lobby.maxPlayersPerTeam()) addPlayer(lobby.getId(), player, counter.getAndIncrement());
                 }
         );
         team2.getPlayers().forEach(player -> {
                     player.setPlayerUsername(userServiceClient.getUserBySteamId(player.getPlayerSteamId()).getSteamUsername());
-                    addPlayer(lobby.getId(), player, counter.getAndIncrement());
+                    if(counter.get() <= lobby.maxPlayersPerTeam() * 2) addPlayer(lobby.getId(), player, counter.getAndIncrement());
                 }
         );
     }
@@ -111,7 +112,7 @@ public class LobbyServiceImpl implements LobbyService {
         if (currentLobby != null) removePlayer(currentLobby.getId(), player.getPlayerSteamId());
 
         targetTeam.put(slot, player);
-        if (slot == 1 || slot == lobby.maxPlayersPerTeam() + 1) {
+        if (player.getInGameRole().equals(InGameRole.IGL)) {
             targetTeam.get(slot).setCaptain(true);
         }
 
