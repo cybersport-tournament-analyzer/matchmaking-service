@@ -71,7 +71,7 @@ public class WebhooksServiceImpl implements WebhooksService {
     public void handleRoundEnd(Match match, String lobbyId) throws IOException, InterruptedException {
         log.info("round end: " + match);
         List<String> consoleLogs = serverService.getConsoleLogs(match.getGame_server_id(), 350);
-        roundEndProducer.produce(consoleLogParser.parseRoundEnd(consoleLogs, match, lobbyService.getLobbyById(lobbyId).getId(), lobbyService.getLobbyById(lobbyId).getTournamentId()));
+        roundEndProducer.produce(consoleLogParser.parseRoundEnd(consoleLogs, match, lobbyService.getLobbyById(lobbyId).getId(), lobbyService.getLobbyById(lobbyId).getTournamentId(), lobbyService.getLobbyById(lobbyId).getCurrentMapNumber()));
         updateMatch(match, lobbyId);
         messagingTemplate.convertAndSend("/topic/match/" + lobbyId, matchToDto(match, lobbyId));
     }

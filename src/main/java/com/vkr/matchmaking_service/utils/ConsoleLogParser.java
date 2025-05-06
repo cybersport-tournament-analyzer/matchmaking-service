@@ -31,7 +31,7 @@ public class ConsoleLogParser {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RoundStatsMapper roundStatsMapper;
 
-    public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match, UUID tournamentMatchId, UUID tournamentId) {
+    public RoundEndEvent parseRoundEnd(List<String> allLogLines, Match match, UUID tournamentMatchId, UUID tournamentId, int seriesOrder) {
         int isFinalRound = isFinal(allLogLines);
         List<String> logLines = extractRelevantLines(allLogLines);
         RoundStatsDto statsDto = extractRoundStats(logLines, match.getRounds_played());
@@ -67,6 +67,7 @@ public class ConsoleLogParser {
                 .killEvents(killEvents)
                 .isFinal(isFinalRound)
                 .match(match)
+                .seriesOrder(seriesOrder)
                 .build();
     }
 

@@ -25,4 +25,5 @@ public class RoundEndEvent implements KafkaEvent {
     private List<KillEventDto> killEvents;
     private Match match;
     private int isFinal;
+    private int seriesOrder;
 }
