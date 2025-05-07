@@ -229,6 +229,8 @@ public class WebhooksServiceImpl implements WebhooksService {
             }
         });
 
+        seriesRepository.save(seriesCache);
+
         switch (currentLobby.getFormat()) {
             case "bo1" -> {
                 String serverId = getMatchById(lobbyId).getGame_server_id();

@@ -88,6 +88,8 @@ public class SeriesServiceImpl implements SeriesService {
 
     @Override
     public MatchCache initNextMatchCache(Lobby lobby) {
+        int mapNumber = lobby.getCurrentMapNumber();
+
         Map<Integer, MatchCache.Kda> team1Kda1 = new HashMap<>();
         Map<Integer, MatchCache.Kda> team2Kda2 = new HashMap<>();
 
@@ -111,7 +113,7 @@ public class SeriesServiceImpl implements SeriesService {
                 .endTime(null)
                 .duration(null)
                 .format(lobby.getFormat())
-                .seriesOrder(lobby.getCurrentMapNumber())
+                .seriesOrder(mapNumber)
                 .team1(lobby.getTeam1())
                 .team2(lobby.getTeam2())
                 .team1Name(lobby.getTeam1Name())
@@ -123,12 +125,6 @@ public class SeriesServiceImpl implements SeriesService {
                 .build();
 
         matchRepository.save(matchCache);
-
-        SeriesCache seriesCache = seriesRepository.findByTournamentMatchId(lobby.getId());
-
-        seriesCache.getMatches().put(matchCache.getSeriesOrder(), matchCache);
-
-        seriesRepository.save(seriesCache);
 
        return matchCache;
     }
