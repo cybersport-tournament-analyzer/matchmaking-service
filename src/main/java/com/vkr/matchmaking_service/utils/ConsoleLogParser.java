@@ -73,6 +73,7 @@ public class ConsoleLogParser {
 
     private Map<String, String> replaceAccountIdsWithSteamIds(List<Map<String, String>> playersFromConsole, List<Match.Player> playersFromMatch) {
         Map<String, String> replaces = new HashMap<>();
+        playersFromConsole.remove(0);
         for (int i = 0; i < playersFromConsole.size(); i++) {
             Map<String, String> consoleStats = playersFromConsole.get(i);
             Match.Player matchPlayer = playersFromMatch.get(i);
