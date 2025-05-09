@@ -74,7 +74,7 @@ public class LobbyServiceImpl implements LobbyService {
         }
 
         Lobby lobby = new Lobby(tournamentMatchId, tournamentId, mode, new PickBanSession(),
-                format, null, new StartMatchPlayerDto(adminId, "spectator", "observer"), new HashMap<>(), new HashMap<>(),
+                format, null, new HashMap<>(), new HashMap<>(),
                 0, 0, team1.getTeamName(), team2.getTeamName(), team1.getFlag(), team2.getFlag(), 0, new ArrayList<>());
 
         save(lobby);
@@ -427,7 +427,7 @@ public class LobbyServiceImpl implements LobbyService {
         matchStartingDto.setTeam1(team1);
         matchStartingDto.setTeam2(team2);
 
-        matchStartingDto.getPlayers().add(lobby.getAdmin());
+//        matchStartingDto.getPlayers().add(lobby.getAdmin());
 
         Match currLobbyMatch = serverService.startMatch(matchStartingDto);
         lobby.getMatches().add(currLobbyMatch);
@@ -586,7 +586,7 @@ public class LobbyServiceImpl implements LobbyService {
                     playerDto.setNickname_override(userDto.getSteamUsername());
                     players.add(playerDto);
                 }
-                players.add(lobby.getAdmin());
+//                players.add(lobby.getAdmin());
 
                 matchStartingDto.setPlayers(players);
                 matchStartingDto.setTeam1(team1);

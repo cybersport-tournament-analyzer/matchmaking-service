@@ -34,7 +34,7 @@ public class Lobby implements Serializable {
     private String format;
     private String link;
 
-    private StartMatchPlayerDto admin;
+//    private StartMatchPlayerDto admin;
 
     private Map<Integer, PlayerDto> team1 = new HashMap<>();
     private Map<Integer, PlayerDto> team2 = new HashMap<>();
